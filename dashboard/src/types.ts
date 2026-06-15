@@ -1,0 +1,100 @@
+/**
+ * types.ts
+ * Dashboard-side type definitions — mirrors the server's types.ts.
+ */
+
+export type IncidentStatus =
+  | 'queued'
+  | 'received'
+  | 'reviewing'
+  | 'dispatched'
+  | 'resolved'
+  | 'false_alarm';
+
+export const INCIDENT_STATUS_ORDER: IncidentStatus[] = [
+  'queued', 'received', 'reviewing', 'dispatched', 'resolved', 'false_alarm',
+];
+
+export const INCIDENT_STATUS_LABELS: Record<IncidentStatus, string> = {
+  queued: 'Queued',
+  received: 'Received',
+  reviewing: 'Reviewing',
+  dispatched: 'Dispatched',
+  resolved: 'Resolved',
+  false_alarm: 'False Alarm',
+};
+
+export const INCIDENT_STATUS_COLORS: Record<IncidentStatus, string> = {
+  queued: '#7B5EA7',
+  received: '#1565C0',
+  reviewing: '#E65C00',
+  dispatched: '#F0A500',
+  resolved: '#2E7D32',
+  false_alarm: '#555555',
+};
+
+export const INCIDENT_TYPE_ICONS: Record<string, string> = {
+  medical: '🚑',
+  lost: '🧭',
+  boating: '⛵',
+  fishing: '🎣',
+  hiking: '🥾',
+  vehicle: '🚗',
+  wildlife: '🐻',
+  other: '🆘',
+};
+
+export const INCIDENT_TYPE_LABELS: Record<string, string> = {
+  medical: 'Medical Emergency',
+  lost: 'Lost / Stranded',
+  boating: 'Boating Incident',
+  fishing: 'Fishing Emergency',
+  hiking: 'Hiking / Trail Incident',
+  vehicle: 'Vehicle Breakdown',
+  wildlife: 'Wildlife Encounter',
+  other: 'Other Emergency',
+};
+
+export interface NearestResource {
+  id: string;
+  name: string;
+  type: string;
+  phone: string;
+  county: string;
+  latitude: number;
+  longitude: number;
+  address?: string;
+  distanceMiles: number;
+}
+
+export interface StatusHistoryEntry {
+  status: IncidentStatus;
+  changedAt: string;
+  operatorNote?: string;
+}
+
+export interface ServerIncident {
+  packetId: string;
+  serverIncidentId: string;
+  incidentType: string;
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+  altitude: number | null;
+  packetTimestamp: string;
+  userId: string;
+  deviceId: string;
+  appVersion: string;
+  batteryLevel: number | null;
+  batteryCharging: boolean | null;
+  signalStatus: string;
+  networkType: string;
+  nearestResource: NearestResource | null;
+  additionalNotes: string;
+  retryCount: number;
+  status: IncidentStatus;
+  receivedAt: string;
+  updatedAt: string;
+  operatorNotes: string;
+  statusHistory: StatusHistoryEntry[];
+}
