@@ -1,18 +1,17 @@
 /**
- * index.ts
- * Public barrel export for the Emergency Response SDK.
+ * @skylab/emergency-sdk
+ * Public API for the Emergency Response SDK.
  *
- * Import from this file in any host app:
- *   import { EmergencyButton, findNearestResource, ... } from './emergency';
+ * Install in any Michigan state agency Expo React Native app:
+ *   import { EmergencyButton, findNearestResource, ... } from '@skylab/emergency-sdk';
  *
- * Designed to plug into:
+ * Target apps:
  *   - Michigan Fishing app
  *   - Michigan Parks app
  *   - Michigan Boating app
  *   - Michigan Hunting app
  *   - Michigan Tourism app
  *   - Michigan Trails app
- *   - Any future Expo React Native state-agency application
  */
 
 // ─── Components ───────────────────────────────────────────────────────────────
@@ -65,6 +64,10 @@ export {
   findNearestResources,
   haversineDistanceMiles,
   formatDistanceMiles,
+  loadResources,
+  refreshResourcesFromBackend,
+  clearResourceCache,
+  getResourceSource,
 } from './services/resourceFinderService';
 
 export {
@@ -74,6 +77,25 @@ export {
   saveEmergencyContacts,
   getEmergencyContacts,
 } from './services/emergencyContactService';
+
+export {
+  getDeviceEncryptionKey,
+  deleteDeviceEncryptionKey,
+  hasDeviceEncryptionKey,
+} from './services/secureStorageService';
+
+export {
+  encryptString,
+  decryptString,
+  isEncryptedPayload,
+} from './services/encryptionService';
+
+export {
+  registerForPushNotifications,
+  getCachedPushToken,
+  clearPushToken,
+  showLocalStatusNotification,
+} from './services/pushNotificationService';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type {

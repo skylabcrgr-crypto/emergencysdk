@@ -19,9 +19,7 @@ import { StatusBar } from 'expo-status-bar';
 import NetInfo from '@react-native-community/netinfo';
 
 import { EmergencyDemoScreen } from './src/screens/EmergencyDemoScreen';
-import { flushQueue } from './src/emergency/services/offlineQueueService';
-import { sendPacketToAPI } from './src/emergency/services/emergencyPacketService';
-import { getOnlineDecision } from './src/emergency/services/networkService';
+import { flushQueue, sendPacketToAPI, getOnlineDecision } from '@skylab/emergency-sdk';
 
 export default function App() {
   const mountedRef = useRef(true);

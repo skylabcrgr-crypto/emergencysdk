@@ -14,20 +14,24 @@
 // ─── Incident Status ──────────────────────────────────────────────────────────
 
 export type IncidentStatus =
-  | 'queued'      // Received, not yet reviewed
-  | 'received'    // Acknowledged by a human operator
-  | 'reviewing'   // Operator actively reviewing
-  | 'dispatched'  // Field unit assigned and en route
-  | 'resolved'    // Incident closed successfully
-  | 'false_alarm'; // Closed as no action needed
+  | 'queued'        // Received, not yet reviewed
+  | 'received'      // Acknowledged by a human operator
+  | 'reviewing'     // Operator actively reviewing
+  | 'dispatched'    // Field unit assigned and en route
+  | 'acknowledged'  // Victim confirmed contact with responder
+  | 'resolved'      // Incident closed successfully
+  | 'false_alarm'   // Closed as no action needed
+  | 'closed';       // Administratively closed
 
 export const INCIDENT_STATUS_ORDER: IncidentStatus[] = [
   'queued',
   'received',
   'reviewing',
   'dispatched',
+  'acknowledged',
   'resolved',
   'false_alarm',
+  'closed',
 ];
 
 export const INCIDENT_STATUS_LABELS: Record<IncidentStatus, string> = {
@@ -35,8 +39,10 @@ export const INCIDENT_STATUS_LABELS: Record<IncidentStatus, string> = {
   received: 'Received',
   reviewing: 'Reviewing',
   dispatched: 'Dispatched',
+  acknowledged: 'Acknowledged',
   resolved: 'Resolved',
   false_alarm: 'False Alarm',
+  closed: 'Closed',
 };
 
 export const INCIDENT_STATUS_COLORS: Record<IncidentStatus, string> = {
@@ -44,8 +50,10 @@ export const INCIDENT_STATUS_COLORS: Record<IncidentStatus, string> = {
   received: '#1565C0',
   reviewing: '#E65C00',
   dispatched: '#F0A500',
+  acknowledged: '#00838F',
   resolved: '#2E7D32',
   false_alarm: '#555555',
+  closed: '#333333',
 };
 
 // ─── Nearest Resource (mirrored from mobile SDK) ──────────────────────────────
@@ -77,6 +85,9 @@ export interface IncomingPacket {
   appVersion: string;
   batteryLevel: number | null;
   batteryCharging: boolean | null;
+  batteryState?: string;
+  lowPowerModeEnabled?: boolean | null;
+  staleLocation?: boolean;
   signalStatus: string;
   networkType: string;
   nearestResource: NearestResource | null;
@@ -84,6 +95,8 @@ export interface IncomingPacket {
   status: string;
   sentAt: string | null;
   retryCount: number;
+  /** Expo push token from the mobile device. Stored on the incident for status-change notifications. */
+  pushToken?: string | null;
 }
 
 // ─── Server-side Incident record ──────────────────────────────────────────────
@@ -115,12 +128,19 @@ export interface ServerIncident {
   updatedAt: string;       // ISO 8601 — last status change
   operatorNotes: string;   // Free-text notes added by dashboard operator
   statusHistory: StatusHistoryEntry[];
+  sourceApp: string;
+  staleLocation: boolean;
+  batteryState: string;
+  assignedOperatorId: string | null;
+  assignedAgency: string | null;
 }
 
 export interface StatusHistoryEntry {
-  status: IncidentStatus;
-  changedAt: string;       // ISO 8601
+  fromStatus: IncidentStatus | null;  // null for the initial 'queued' entry
+  status: IncidentStatus;             // toStatus
+  changedAt: string;                  // ISO 8601
   operatorNote?: string;
+  changedById?: string | null;        // operatorId if provided
 }
 
 // ─── API Request / Response shapes ───────────────────────────────────────────
@@ -135,6 +155,18 @@ export interface CreateIncidentResponse {
 export interface UpdateStatusRequest {
   status: IncidentStatus;
   operatorNote?: string;
+  operatorId?: string;     // forwarded to audit log as actorUserId
+}
+
+export interface NoteRequest {
+  note: string;
+  operatorId?: string;
+}
+
+export interface AssignmentRequest {
+  assignedOperatorId?: string | null;
+  assignedAgency?: string | null;
+  operatorId?: string;
 }
 
 export interface UpdateStatusResponse {

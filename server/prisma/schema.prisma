@@ -1,0 +1,178 @@
+// Prisma schema for the Emergency Response Offline SDK backend.
+//
+// Database: PostgreSQL (Supabase recommended for Vercel deployments)
+//
+// Connection URLs:
+//   DATABASE_URL  — Transaction pooler URL (used by Vercel serverless queries)
+//                   Supabase: postgresql://postgres.[REF]:[PWD]@aws-0-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true
+//   DIRECT_URL    — Direct connection URL (used by Prisma Migrate only)
+//                   Supabase: postgresql://postgres:[PWD]@db.[REF].supabase.co:5432/postgres
+//
+// Local dev: both can point to the same direct Postgres URL.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum IncidentStatus {
+  queued
+  received
+  reviewing
+  dispatched
+  acknowledged
+  resolved
+  false_alarm
+  closed
+}
+
+// ─── Models ───────────────────────────────────────────────────────────────────
+
+/// Represents the operator/dispatching side user (future RBAC).
+model User {
+  id         String   @id @default(cuid())
+  externalId String?  @unique     // Agency SSO / OAuth subject ID
+  deviceId   String?
+  appVersion String?
+  role       String   @default("mobile") // mobile | operator | admin | viewer
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+/// Registered emergency resource (sheriff, coast guard, DNR post, etc.)
+/// Pre-seeded from michiganEmergencyResources.json or imported from CSV via
+/// `npm run import:resources`.
+model EmergencyResource {
+  id        String @id           // Matches the ID in the mobile SDK resource JSON
+  name      String
+  type      String
+  phone     String
+  county    String
+  latitude  Float
+  longitude Float
+  address   String?
+  hours     String?
+  notes     String?
+
+  // ── CSV import provenance fields ───────────────────────────────────────────
+  agency           String?
+  jurisdiction     String?
+  resourceCategory String?
+
+  incidents EmergencyIncident[]
+
+  @@index([type])
+  @@index([county])
+}
+
+/// Core incident record — one per SOS packet received from the mobile SDK.
+model EmergencyIncident {
+  id             String @id @default(cuid())
+  /// Auto-incrementing display number. Formatted as "INC-0001" in API responses.
+  incidentNumber Int    @default(autoincrement())
+
+  /// Original packet UUID from the mobile SDK.
+  externalPacketId String @unique
+  /// Formatted display ID (e.g. "INC-0001"). Set after insert using incidentNumber.
+  serverIncidentId String @unique
+
+  // ── Submitter identity (placeholder until real auth is wired) ──────────────
+  userId     String?
+  deviceId   String?
+  appVersion String?
+
+  // ── Incident classification ────────────────────────────────────────────────
+  incidentType String
+  sourceApp    String @default("er-offline-sdk")
+
+  // ── GPS ───────────────────────────────────────────────────────────────────
+  latitude      Float
+  longitude     Float
+  accuracy      Float
+  altitude      Float?
+  staleLocation Boolean @default(false)
+
+  // ── Device telemetry ──────────────────────────────────────────────────────
+  batteryLevel        Float?
+  batteryState        String  @default("unknown")
+  batteryCharging     Boolean?
+  lowPowerModeEnabled Boolean?
+  signalStatus        String
+  networkType         String
+
+  // ── Nearest resource (FK + JSON snapshot for easy API serialization) ───────
+  nearestResourceId          String?
+  nearestResource            EmergencyResource? @relation(fields: [nearestResourceId], references: [id])
+  nearestResourceDistanceMiles Float?
+  /// Full NearestResource snapshot at time of incident (includes distanceMiles, warning).
+  nearestResourceSnapshot    Json?
+
+  // ── Notes ─────────────────────────────────────────────────────────────────
+  additionalNotes String @default("")
+  operatorNotes   String @default("")
+
+  // ── Packet metadata ───────────────────────────────────────────────────────
+  retryCount       Int      @default(0)
+  packetTimestamp  DateTime?
+  sentAt           DateTime?
+
+  /// Expo Push Token from the mobile device that submitted this incident.
+  /// Used by notification.service.ts to deliver status-change push notifications.
+  /// TODO(production/push): Validate and store per-device tokens in a separate
+  ///   UserDevice table to support multiple devices per user and token rotation.
+  pushToken String?
+
+  // ── Operator assignment ─────────────────────────────────────────────────────────
+  assignedOperatorId String?
+  assignedAgency     String?
+
+  // ── Server-side lifecycle ─────────────────────────────────────────────────
+  status     IncidentStatus @default(queued)
+  receivedAt DateTime       @default(now())
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  // ── Relations ──────────────────────────────────────────────────────────────
+  statusHistory IncidentStatusHistory[]
+}
+
+/// Immutable record of every status transition on an incident.
+model IncidentStatusHistory {
+  id         String   @id @default(cuid())
+  incidentId String
+  incident   EmergencyIncident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  fromStatus String?  // null for initial 'queued' entry
+  toStatus   String
+  operatorId String?
+  note       String?
+  changedAt  DateTime @default(now())
+
+  @@index([incidentId])
+}
+
+/// Append-only audit trail for all significant server-side actions.
+/// Records MUST NOT be updated or deleted — there are no mutating routes.
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?           // nullable until JWT auth is wired (Command 3)
+  actorRole   String?           // e.g. "admin", "operator", "mobile"
+  action      String            // AuditAction literal — see audit.service.ts
+  entityType  String?           // e.g. "EmergencyIncident", "User"
+  entityId    String?           // display ID (e.g. "INC-0001") or cuid
+  ipAddress   String?
+  userAgent   String?
+  metadata    Json?             // action-specific payload
+  createdAt   DateTime @default(now())
+
+  @@index([action])
+  @@index([createdAt])
+  @@index([entityId])
+}

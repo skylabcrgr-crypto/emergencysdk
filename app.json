@@ -47,7 +47,8 @@
           "locationAlwaysAndWhenInUsePermission": "Allow ER SDK to access your location for emergency response.",
           "locationWhenInUsePermission": "Allow ER SDK to access your location to find your position in an emergency."
         }
-      ]
+      ],
+      "expo-secure-store"
     ]
   }
 }

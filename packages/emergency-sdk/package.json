@@ -1,0 +1,36 @@
+{
+  "name": "@skylab/emergency-sdk",
+  "version": "1.0.0",
+  "description": "Emergency Response SDK for Michigan state agency Expo React Native apps. Provides offline-first SOS alerting, GPS capture, encrypted queue, nearest resource matching, and push notifications.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "ts:check": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "react": "*",
+    "react-native": "*",
+    "expo": "*",
+    "expo-location": "*",
+    "expo-sms": "*",
+    "expo-battery": "*",
+    "expo-notifications": "*",
+    "expo-device": "*",
+    "expo-secure-store": "*",
+    "@react-native-community/netinfo": "*",
+    "@react-native-async-storage/async-storage": "*"
+  },
+  "keywords": [
+    "emergency",
+    "michigan",
+    "sos",
+    "offline",
+    "react-native",
+    "expo"
+  ],
+  "license": "SEE LICENSE IN LICENSE",
+  "private": true
+}

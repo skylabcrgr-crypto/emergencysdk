@@ -67,7 +67,12 @@ function makeSeed(
     receivedAt,
     updatedAt: receivedAt,
     operatorNotes: '',
-    statusHistory: [{ status, changedAt: receivedAt }],
+    statusHistory: [{ fromStatus: null, status, changedAt: receivedAt }],
+    sourceApp: 'er-offline-sdk',
+    staleLocation: false,
+    batteryState: 'unplugged',
+    assignedOperatorId: null,
+    assignedAgency: null,
   };
 }
 
@@ -118,6 +123,7 @@ export function updateIncidentStatus(
   if (!incident) return null;
 
   const historyEntry: StatusHistoryEntry = {
+    fromStatus: incident.status,
     status: newStatus,
     changedAt: new Date().toISOString(),
     ...(operatorNote ? { operatorNote } : {}),

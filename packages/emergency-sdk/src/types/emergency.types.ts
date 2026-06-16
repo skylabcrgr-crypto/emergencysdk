@@ -145,6 +145,26 @@ export interface EmergencyPacket {
   status: PacketStatus;
   sentAt: string | null; // ISO 8601 or null
   retryCount: number;
+  /**
+   * Expo Push Token for this device, registered at app start.
+   * Included in every packet so the backend can notify the submitting
+   * device when an operator changes the incident status.
+   *
+   * Format: "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]" (Expo managed)
+   *       or a raw FCM/APNs token when using bare workflow.
+   *
+   * TODO(production/apns-fcm): To send real push notifications, configure:
+   *   - iOS: Upload an APNs Auth Key (.p8) in the Expo dashboard or
+   *     FCM server key in Firebase Console.
+   *   - Android: Add google-services.json (Firebase) and configure
+   *     expo-notifications in app.json.
+   *   - Run `eas credentials` to link credentials to your EAS project.
+   *   Reference: https://docs.expo.dev/push-notifications/push-notifications-setup/
+   *
+   * Null when push notifications are not available (simulator, permissions denied,
+   * missing credentials, or project ID not configured).
+   */
+  pushToken: string | null;
 }
 
 export type PacketStatus =

@@ -4,7 +4,8 @@
     "strict": true,
     "baseUrl": ".",
     "paths": {
-      "@emergency/*": ["src/emergency/*"]
+      "@skylab/emergency-sdk": ["packages/emergency-sdk/src"],
+      "@skylab/emergency-sdk/*": ["packages/emergency-sdk/src/*"]
     },
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
@@ -12,6 +13,8 @@
     "skipLibCheck": true
   },
   "include": [
+    "packages/emergency-sdk/src/**/*.ts",
+    "packages/emergency-sdk/src/**/*.tsx",
     "src/**/*.ts",
     "src/**/*.tsx",
     "App.tsx"

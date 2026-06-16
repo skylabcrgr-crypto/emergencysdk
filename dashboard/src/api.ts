@@ -4,7 +4,7 @@
  * All calls go through the Vite dev proxy (/api → localhost:3001).
  */
 
-import type { ServerIncident, IncidentStatus } from './types';
+import type { ServerIncident, IncidentStatus, EmergencyResourceRecord } from './types';
 
 const BASE = '/api/emergency';
 
@@ -65,14 +65,63 @@ export async function fetchIncident(id: string): Promise<ServerIncident> {
 export async function updateIncidentStatus(
   id: string,
   status: IncidentStatus,
-  operatorNote?: string
+  operatorNote?: string,
+  operatorId?: string
 ): Promise<ServerIncident> {
   const data = await request<UpdateStatusResponse>(
     `/incidents/${id}/status`,
     {
       method: 'PATCH',
-      body: JSON.stringify({ status, operatorNote }),
+      body: JSON.stringify({ status, operatorNote, operatorId }),
     }
   );
   return data.incident;
+}
+
+interface NoteResponse { success: boolean; incident: ServerIncident }
+interface AssignResponse { success: boolean; incident: ServerIncident }
+
+export async function addOperatorNote(
+  id: string,
+  note: string,
+  operatorId?: string
+): Promise<ServerIncident> {
+  const data = await request<NoteResponse>(
+    `/incidents/${id}/note`,
+    { method: 'PATCH', body: JSON.stringify({ note, operatorId }) }
+  );
+  return data.incident;
+}
+
+export async function updateIncidentAssignment(
+  id: string,
+  assignedOperatorId: string | null,
+  assignedAgency: string | null,
+  operatorId?: string
+): Promise<ServerIncident> {
+  const data = await request<AssignResponse>(
+    `/incidents/${id}/assign`,
+    { method: 'PATCH', body: JSON.stringify({ assignedOperatorId, assignedAgency, operatorId }) }
+  );
+  return data.incident;
+}
+
+// ─── Resources ────────────────────────────────────────────────────────────────
+
+interface ResourceListResponse {
+  success: boolean;
+  count: number;
+  resources: EmergencyResourceRecord[];
+}
+
+export async function fetchResources(filters?: {
+  type?: string;
+  county?: string;
+}): Promise<EmergencyResourceRecord[]> {
+  const params = new URLSearchParams();
+  if (filters?.type)   params.set('type', filters.type);
+  if (filters?.county) params.set('county', filters.county);
+  const query = params.toString() ? `?${params}` : '';
+  const data = await request<ResourceListResponse>(`/resources${query}`);
+  return data.resources;
 }
