@@ -35,6 +35,7 @@ import {
 import { emergencyRouter } from './routes/emergency.routes';
 import { adminRouter }     from './routes/admin.routes';
 import { authRouter }      from './routes/auth.routes';
+import { usersRouter }     from './routes/users.routes';
 
 const app = express();
 
@@ -93,6 +94,9 @@ app.get('/health', (_req, res) => {
 
 // Mobile SDK incident ingestion — moderate rate limit
 app.use('/api/emergency', incidentCreateRateLimit, emergencyRouter);
+
+// Admin user management — more specific path mounted first
+app.use('/api/admin/users', dashboardRateLimit, usersRouter);
 
 // Dashboard / admin — read-heavy, generous but bounded
 app.use('/api/admin', dashboardRateLimit, adminRouter);

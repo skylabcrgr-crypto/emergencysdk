@@ -40,6 +40,18 @@ const schema = z.object({
   /** Token lifetime, e.g. '8h', '30m', '7d'. */
   TOKEN_TTL: z.string().min(1).default('8h'),
 
+  /** Base URL of the dashboard — used to build password-reset links. */
+  DASHBOARD_BASE_URL: z.string().min(1).default('http://localhost:5173'),
+
+  /** Password reset token lifetime in minutes. */
+  PASSWORD_RESET_TOKEN_TTL_MINUTES: z.coerce.number().int().positive().default(30),
+
+  /** Failed login attempts before the account is temporarily locked. */
+  MAX_LOGIN_ATTEMPTS: z.coerce.number().int().positive().default(5),
+
+  /** Lockout duration in minutes after MAX_LOGIN_ATTEMPTS is reached. */
+  LOCKOUT_MINUTES: z.coerce.number().int().positive().default(15),
+
   PORT:     z.coerce.number().int().positive().default(3001),
   NODE_ENV: z.enum(['development', 'staging', 'production', 'test']).default('development'),
 });

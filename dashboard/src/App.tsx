@@ -19,6 +19,17 @@ import { FilterPanel }   from './components/FilterPanel';
 import { IncidentList }  from './components/IncidentList';
 import { MapPanel }      from './components/MapPanel';
 import { IncidentDetail } from './components/IncidentDetail';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { LoginScreen } from './components/auth/LoginScreen';
+import { ForgotPasswordScreen } from './components/auth/ForgotPasswordScreen';
+import { ResetPasswordScreen } from './components/auth/ResetPasswordScreen';
+import { SessionTimeoutModal } from './components/auth/SessionTimeoutModal';
+import { UserManagementPanel } from './components/admin/UserManagementPanel';
+import { UserRoleBadge } from './components/admin/UserRoleBadge';
+import { colors } from './components/auth/authStyles';
+
+const SESSION_TIMEOUT_MIN = Number(import.meta.env.VITE_SESSION_TIMEOUT_MINUTES ?? '30') || 30;
+const SESSION_WARNING_MIN = Number(import.meta.env.VITE_SESSION_WARNING_MINUTES ?? '28') || 28;
 
 const POLL_INTERVAL_MS = 10_000;
 
@@ -88,9 +99,9 @@ function exportToCsv(incidents: ServerIncident[]): void {
   URL.revokeObjectURL(url);
 }
 
-// ─── App ──────────────────────────────────────────────────────────────────────
+// ─── Operations console (the existing dashboard) ───────────────────────────────
 
-export default function App() {
+function OperationsConsole() {
   const [incidents,      setIncidents]      = useState<ServerIncident[]>([]);
   const [resources,      setResources]      = useState<EmergencyResourceRecord[]>([]);
   const [selectedId,     setSelectedId]     = useState<string | null>(null);
@@ -147,7 +158,7 @@ export default function App() {
     : false;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
 
       {/* ── Legal disclaimer ────────────────────────────────────────────────── */}
       <div style={{
@@ -239,3 +250,243 @@ export default function App() {
     </div>
   );
 }
+
+// ─── Auth screen router (login ↔ forgot ↔ reset) ───────────────────────────────
+
+type AuthView = 'login' | 'forgot';
+
+function AuthScreens({ onCancel }: { onCancel?: () => void }) {
+  const [view, setView] = useState<AuthView>('login');
+  return (
+    <div style={{ position: 'relative' }}>
+      {onCancel && (
+        <button
+          type="button"
+          onClick={onCancel}
+          style={{
+            position: 'absolute', top: 16, right: 16, zIndex: 2,
+            background: 'none', border: `1px solid ${colors.border}`,
+            color: colors.textDim, borderRadius: 8, padding: '6px 12px',
+            fontSize: 12, fontWeight: 600, cursor: 'pointer',
+          }}
+        >
+          Back to demo
+        </button>
+      )}
+      {view === 'login' ? (
+        <LoginScreen onForgotPassword={() => setView('forgot')} />
+      ) : (
+        <ForgotPasswordScreen onBackToLogin={() => setView('login')} />
+      )}
+    </div>
+  );
+}
+
+// ─── Top navigation / header ───────────────────────────────────────────────────
+
+type Tab = 'operations' | 'admin';
+
+function Header({
+  tab, onTab, onStaffSignIn,
+}: {
+  tab: Tab;
+  onTab: (t: Tab) => void;
+  onStaffSignIn: () => void;
+}) {
+  const { user, logout, demoMode, isAdmin, status } = useAuth();
+  const authenticated = status === 'authenticated';
+
+  const tabBtn = (t: Tab): React.CSSProperties => ({
+    background: 'none',
+    border: 'none',
+    color: tab === t ? colors.text : colors.textDim,
+    borderBottom: tab === t ? `2px solid ${colors.accent}` : '2px solid transparent',
+    padding: '6px 4px',
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: 'pointer',
+  });
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 20,
+      backgroundColor: '#0a0a0b', borderBottom: `1px solid ${colors.border}`,
+      padding: '8px 16px', flexShrink: 0,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span aria-hidden style={{ fontSize: 16 }}>🛰️</span>
+        <strong style={{ color: colors.text, fontSize: 14, whiteSpace: 'nowrap' }}>
+          ER SDK Operations Dashboard
+        </strong>
+      </div>
+
+      <span style={{
+        fontSize: 10, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase',
+        color: demoMode ? colors.warning : colors.success,
+        border: `1px solid ${demoMode ? colors.warning : colors.success}`,
+        borderRadius: 5, padding: '2px 6px',
+      }}>
+        {demoMode ? 'Demo' : 'Live'}
+      </span>
+
+      {authenticated && (
+        <nav style={{ display: 'flex', gap: 16, marginLeft: 8 }}>
+          <button type="button" style={tabBtn('operations')} onClick={() => onTab('operations')}>
+            Operations
+          </button>
+          {isAdmin && (
+            <button type="button" style={tabBtn('admin')} onClick={() => onTab('admin')}>
+              Admin Users
+            </button>
+          )}
+        </nav>
+      )}
+
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
+        {authenticated && user ? (
+          <>
+            <div style={{ textAlign: 'right', lineHeight: 1.2 }}>
+              <div style={{ color: colors.text, fontSize: 12, fontWeight: 600 }}>
+                {user.name || user.email}
+              </div>
+              {user.name && <div style={{ color: colors.textFaint, fontSize: 11 }}>{user.email}</div>}
+            </div>
+            <UserRoleBadge role={user.role} />
+            <button
+              type="button"
+              onClick={() => void logout()}
+              style={{
+                background: 'none', border: `1px solid ${colors.border}`,
+                color: colors.textDim, borderRadius: 8, padding: '6px 12px',
+                fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              }}
+            >
+              Sign out
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={onStaffSignIn}
+            style={{
+              backgroundColor: colors.accent, color: '#fff', border: 'none',
+              borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+            }}
+          >
+            Staff sign-in
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Auth gate / shell ─────────────────────────────────────────────────────────
+
+function getResetToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  if (window.location.pathname !== '/reset-password') return null;
+  return new URLSearchParams(window.location.search).get('token');
+}
+
+function isResetRoute(): boolean {
+  return typeof window !== 'undefined' && window.location.pathname === '/reset-password';
+}
+
+function AppShell() {
+  const { status, demoMode, isAdmin, logout, sessionMessage, clearSessionMessage } = useAuth();
+  const [tab, setTab] = useState<Tab>('operations');
+  const [demoSignIn, setDemoSignIn] = useState(false);
+  const [showReset, setShowReset] = useState(isResetRoute());
+
+  // Non-admins forced back to operations if they somehow land on admin.
+  useEffect(() => {
+    if (tab === 'admin' && !isAdmin) setTab('operations');
+  }, [tab, isAdmin]);
+
+  // Reset-password route takes precedence over everything.
+  if (showReset) {
+    return (
+      <ResetPasswordScreen
+        token={getResetToken()}
+        onDone={() => {
+          window.history.replaceState({}, '', '/');
+          setShowReset(false);
+        }}
+      />
+    );
+  }
+
+  if (status === 'loading') {
+    return (
+      <div style={{
+        minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        backgroundColor: colors.bg, color: colors.textDim, fontSize: 14,
+      }}>
+        Loading…
+      </div>
+    );
+  }
+
+  // Secure mode, not signed in → require login.
+  if (status === 'unauthenticated') {
+    return <AuthScreens />;
+  }
+
+  // Demo mode where the operator chose to sign in.
+  if (status === 'demo' && demoSignIn) {
+    return <AuthScreens onCancel={() => setDemoSignIn(false)} />;
+  }
+
+  const banner = sessionMessage ? (
+    <div
+      role="status"
+      style={{
+        backgroundColor: '#0e2433', borderBottom: `1px solid ${colors.accent}`,
+        color: '#9fd2ff', padding: '6px 16px', fontSize: 12,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0,
+      }}
+    >
+      <span>{sessionMessage}</span>
+      <button
+        type="button"
+        onClick={clearSessionMessage}
+        aria-label="Dismiss"
+        style={{ background: 'none', border: 'none', color: '#9fd2ff', cursor: 'pointer', fontSize: 16 }}
+      >
+        ×
+      </button>
+    </div>
+  ) : null;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+      <Header tab={tab} onTab={setTab} onStaffSignIn={() => setDemoSignIn(true)} />
+      {banner}
+      <div style={{ flex: 1, overflow: 'hidden' }}>
+        {tab === 'admin' && isAdmin ? (
+          <div style={{ height: '100%', overflowY: 'auto', backgroundColor: colors.bg }}>
+            <UserManagementPanel />
+          </div>
+        ) : (
+          <OperationsConsole />
+        )}
+      </div>
+      <SessionTimeoutModal
+        enabled={status === 'authenticated' && !demoMode}
+        timeoutMinutes={SESSION_TIMEOUT_MIN}
+        warningMinutes={SESSION_WARNING_MIN}
+        onTimeout={() => void logout()}
+      />
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppShell />
+    </AuthProvider>
+  );
+}
+

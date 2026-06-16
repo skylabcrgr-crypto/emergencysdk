@@ -50,12 +50,48 @@ model User {
   passwordHash String?           // bcrypt hash — null for SSO-only or mobile users
   name         String?           // display name shown in the dashboard
 
+  // ── Login protection / account lifecycle ──────────────────────────────────
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?            // brute-force lockout window
+  passwordChangedAt   DateTime?            // last password rotation
+  lastLoginAt         DateTime?            // last successful login
+
   deviceId   String?
   appVersion String?
-  role       String   @default("mobile") // mobile | operator | admin | viewer
+  role       String   @default("mobile") // mobile | operator | admin | viewer | agency_partner
   isActive   Boolean  @default(true)      // disable an account without deleting it
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+
+  passwordResetTokens PasswordResetToken[]
+}
+
+/// Single-use password reset token. Only the SHA-256 hash is stored.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique          // SHA-256 hex of the raw token (never store raw)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// Admin invitation token (optional flow). Only the SHA-256 hash is stored.
+model InviteToken {
+  id              String    @id @default(cuid())
+  email           String
+  role            String
+  tokenHash       String    @unique
+  invitedByUserId String?
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@index([email])
 }
 
 /// Registered emergency resource (sheriff, coast guard, DNR post, etc.)

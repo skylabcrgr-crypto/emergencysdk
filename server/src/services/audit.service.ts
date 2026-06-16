@@ -31,7 +31,18 @@ export type AuditAction =
   | 'operator_note_added'
   | 'assignment_changed'
   | 'user_login'
+  | 'user_logout'
   | 'failed_login'
+  | 'account_locked'
+  | 'password_changed'
+  | 'password_reset_requested'
+  | 'password_reset_completed'
+  | 'admin_user_created'
+  | 'admin_user_updated'
+  | 'admin_user_deactivated'
+  | 'admin_user_reactivated'
+  | 'admin_password_reset'
+  | 'token_expired'
   | 'dashboard_access_denied';
 
 // ─── Write ────────────────────────────────────────────────────────────────────
