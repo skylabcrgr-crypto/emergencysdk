@@ -25,6 +25,9 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
+# Required by Prisma's schema engine for TLS database connections
+RUN apk add --no-cache openssl
+
 # Install only production deps + regenerate Prisma client in prod image
 COPY package*.json ./
 COPY prisma ./prisma/
