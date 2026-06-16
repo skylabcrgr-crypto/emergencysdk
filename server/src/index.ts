@@ -6,6 +6,14 @@
  * For Vercel serverless deployment, see /api/index.ts instead.
  */
 
+// Catch and log any synchronous startup error (e.g. Prisma engine binary
+// failing to load, missing module, env validation) so it appears in Railway
+// logs instead of a silent exit.
+process.on('uncaughtException', (err) => {
+  process.stderr.write(`[STARTUP] Uncaught exception during startup:\n${err.stack ?? err}\n`);
+  process.exit(1);
+});
+
 import app from './app';
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;

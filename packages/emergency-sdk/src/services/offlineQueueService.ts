@@ -2,8 +2,16 @@
  * offlineQueueService.ts
  * Persists unsent emergency packets to AsyncStorage and retries when online.
  *
- * Storage key layout:
- *   EMERGENCY_QUEUE → JSON array of QueuedPacket
+ * Storage layout:
+ *   EMERGENCY_QUEUE → single AES-256-GCM encrypted EncryptedPayload envelope
+ *                     (JSON string from encryptionService.encryptString).
+ *                     The plaintext inside the envelope is a JSON array of
+ *                     QueuedPacket.
+ *
+ * Backward-compatibility migration:
+ *   If the stored value is NOT an EncryptedPayload (i.e. a legacy plain-JSON
+ *   queue from a previous app version), getQueuedPackets() reads and migrates
+ *   it to encrypted format transparently on first access.
  *
  * Future integrations:
  * - SQLite: swap AsyncStorage for expo-sqlite for larger queue capacity
@@ -15,6 +23,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { EmergencyPacket, QueuedPacket } from '../types/emergency.types';
+import { encryptString, decryptString, isEncryptedPayload } from './encryptionService';
 
 const QUEUE_STORAGE_KEY = '@emergency_sdk/offline_queue';
 const MAX_RETRY_ATTEMPTS = 5;
@@ -44,14 +53,42 @@ export async function enqueuePacket(packet: EmergencyPacket): Promise<void> {
 
 /**
  * Returns all currently queued packets in insertion order.
+ *
+ * Handles three storage states transparently:
+ *   1. Empty / absent  → returns []
+ *   2. EncryptedPayload (current format) → decrypts and parses
+ *   3. Plain JSON array (legacy unencrypted) → migrates to encrypted and returns
  */
 export async function getQueuedPackets(): Promise<QueuedPacket[]> {
   try {
     const raw = await AsyncStorage.getItem(QUEUE_STORAGE_KEY);
     if (!raw) return [];
-    return JSON.parse(raw) as QueuedPacket[];
-  } catch {
-    // Corrupt storage — return empty and let it rebuild
+
+    // ── Backward-compatibility migration ─────────────────────────────────────
+    // If the stored string is NOT an EncryptedPayload, it is a legacy plain-JSON
+    // queue from an older version of the app. Read it, re-encrypt, and save.
+    if (!isEncryptedPayload(raw)) {
+      console.warn('[offlineQueue] Migrating plain-JSON queue to encrypted format.');
+      let legacyQueue: QueuedPacket[] = [];
+      try {
+        legacyQueue = JSON.parse(raw) as QueuedPacket[];
+      } catch {
+        // Corrupt legacy data — discard and start fresh.
+        await AsyncStorage.removeItem(QUEUE_STORAGE_KEY);
+        return [];
+      }
+      await persistQueue(legacyQueue);          // write back encrypted
+      return legacyQueue;
+    }
+
+    // ── Normal path: decrypt and parse ───────────────────────────────────────
+    const plaintext = await decryptString(raw);
+    return JSON.parse(plaintext) as QueuedPacket[];
+  } catch (err) {
+    // Decryption failure (e.g. key was wiped, device restore without backup)
+    // — discard the queue rather than crashing the SOS flow.
+    console.error('[offlineQueue] Failed to read/decrypt queue; discarding:', err);
+    await AsyncStorage.removeItem(QUEUE_STORAGE_KEY).catch(() => {});
     return [];
   }
 }
@@ -159,6 +196,12 @@ export async function flushQueue(
 
 // ─── Internal Helpers ─────────────────────────────────────────────────────────
 
+/**
+ * Serializes the queue to JSON, encrypts it, and writes the EncryptedPayload
+ * envelope to AsyncStorage. The stored value is never readable plain JSON.
+ */
 async function persistQueue(queue: QueuedPacket[]): Promise<void> {
-  await AsyncStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(queue));
+  const plaintext = JSON.stringify(queue);
+  const encrypted = await encryptString(plaintext);
+  await AsyncStorage.setItem(QUEUE_STORAGE_KEY, encrypted);
 }

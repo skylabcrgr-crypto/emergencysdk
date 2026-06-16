@@ -1,0 +1,9 @@
+name,type,agency,county,phone,address,latitude,longitude,jurisdiction,resourceCategory
+Michigan DNR Gaylord Customer Service Center,Customer Service Center,Michigan Department of Natural Resources,Otsego,989-732-3541,"1732 W M-32, Gaylord, MI 49735",45.0278,-84.7034,Northern Lower Peninsula,DNR Office
+Marquette County Sheriff's Office,Sheriff Office,Marquette County Sheriff,Marquette,906-225-8435,"236 W Baraga Avenue, Marquette, MI 49855",46.543,-87.3972,Marquette County,Sheriff Office
+Corewell Health Butterworth Hospital Emergency Department,Emergency Department,Corewell Health,Kent,616-391-1774,"100 Michigan Street NE, Grand Rapids, MI 49503",42.969485,-85.6649995,Grand Rapids / Kent County,Hospital
+U.S. Coast Guard Station Grand Haven,Coast Guard Station,United States Coast Guard,Ottawa,616-850-2501,"650 S Harbor Drive, Grand Haven, MI 49417",43.0602,-86.2388,Lake Michigan / Sector Lake Michigan,Coast Guard Station
+Straits State Harbor,Harbor Master / Marina Office,Michigan DNR / Straits State Harbor,Cheboygan,231-436-5326,"409 S Huron Avenue, Mackinaw City, MI 49701",45.7722,-84.7241,Mackinaw City / Straits of Mackinac,Marina/Harbor Master
+Mio Ranger Station,Ranger Station,U.S. Forest Service,Oscoda,989-826-3252,"107 McKinley Road, Mio, MI 48647",44.6526,-84.1297,Huron National Forest,Ranger Station
+Charlevoix County EMS Station,EMS Station,Charlevoix County EMS,Charlevoix,231-547-3272,"1000 Grant Street, Charlevoix, MI 49720",45.3109,-85.2585,Charlevoix County,EMS Station
+Ludington State Park Office,State Park Office,Michigan Department of Natural Resources,Mason,231-843-2423,"8800 W M-116, Ludington, MI 49431",44.0327,-86.5039,Ludington State Park,State Park Office
