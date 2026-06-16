@@ -8,29 +8,35 @@ export type IncidentStatus =
   | 'received'
   | 'reviewing'
   | 'dispatched'
+  | 'acknowledged'
   | 'resolved'
-  | 'false_alarm';
+  | 'false_alarm'
+  | 'closed';
 
 export const INCIDENT_STATUS_ORDER: IncidentStatus[] = [
-  'queued', 'received', 'reviewing', 'dispatched', 'resolved', 'false_alarm',
+  'queued', 'received', 'reviewing', 'dispatched', 'acknowledged', 'resolved', 'false_alarm', 'closed',
 ];
 
 export const INCIDENT_STATUS_LABELS: Record<IncidentStatus, string> = {
-  queued: 'Queued',
-  received: 'Received',
-  reviewing: 'Reviewing',
-  dispatched: 'Dispatched',
-  resolved: 'Resolved',
-  false_alarm: 'False Alarm',
+  queued:       'Queued',
+  received:     'Received',
+  reviewing:    'Reviewing',
+  dispatched:   'Dispatched',
+  acknowledged: 'Acknowledged',
+  resolved:     'Resolved',
+  false_alarm:  'False Alarm',
+  closed:       'Closed',
 };
 
 export const INCIDENT_STATUS_COLORS: Record<IncidentStatus, string> = {
-  queued: '#7B5EA7',
-  received: '#1565C0',
-  reviewing: '#E65C00',
-  dispatched: '#F0A500',
-  resolved: '#2E7D32',
-  false_alarm: '#555555',
+  queued:       '#7B5EA7',
+  received:     '#1565C0',
+  reviewing:    '#E65C00',
+  dispatched:   '#F0A500',
+  acknowledged: '#00838F',
+  resolved:     '#2E7D32',
+  false_alarm:  '#555555',
+  closed:       '#333333',
 };
 
 export const INCIDENT_TYPE_ICONS: Record<string, string> = {
@@ -68,9 +74,11 @@ export interface NearestResource {
 }
 
 export interface StatusHistoryEntry {
-  status: IncidentStatus;
+  fromStatus: IncidentStatus | null;  // null for the initial 'queued' entry
+  status: IncidentStatus;             // toStatus
   changedAt: string;
   operatorNote?: string;
+  changedById?: string | null;
 }
 
 export interface ServerIncident {

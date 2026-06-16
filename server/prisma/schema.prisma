@@ -122,7 +122,6 @@ model EmergencyIncident {
 
   // ── Relations ──────────────────────────────────────────────────────────────
   statusHistory IncidentStatusHistory[]
-  auditLogs     AuditLog[]
 }
 
 /// Immutable record of every status transition on an incident.
@@ -140,20 +139,21 @@ model IncidentStatusHistory {
   @@index([incidentId])
 }
 
-/// Structured, append-only audit trail for every significant action.
+/// Append-only audit trail for all significant server-side actions.
+/// Records MUST NOT be updated or deleted — there are no mutating routes.
 model AuditLog {
-  id         String    @id @default(cuid())
-  incidentId String?
-  incident   EmergencyIncident? @relation(fields: [incidentId], references: [id], onDelete: SetNull)
+  id          String   @id @default(cuid())
+  actorUserId String?           // nullable until JWT auth is wired (Command 3)
+  actorRole   String?           // e.g. "admin", "operator", "mobile"
+  action      String            // AuditAction literal — see audit.service.ts
+  entityType  String?           // e.g. "EmergencyIncident", "User"
+  entityId    String?           // display ID (e.g. "INC-0001") or cuid
+  ipAddress   String?
+  userAgent   String?
+  metadata    Json?             // action-specific payload
+  createdAt   DateTime @default(now())
 
-  action    String   // e.g. "incident.created", "status.changed", "incident.viewed"
-  actorId   String?
-  actorRole String?
-  ip        String?
-  userAgent String?
-  details   Json?
-  timestamp DateTime @default(now())
-
-  @@index([incidentId])
-  @@index([timestamp])
+  @@index([action])
+  @@index([createdAt])
+  @@index([entityId])
 }

@@ -28,6 +28,7 @@ import {
   checkDatabaseHealth,
   ServiceError,
 } from '../services/incident.service';
+import { logAuditEvent } from '../services/audit.service';
 import type {
   IncomingPacket,
   CreateIncidentResponse,
@@ -49,6 +50,13 @@ function serviceErrorToHttp(err: ServiceError): { status: number; message: strin
     case 'DB_UNAVAILABLE': return { status: 503, message: 'Database unavailable. Check DATABASE_URL.' };
     default:               return { status: 500, message: err.message };
   }
+}
+
+/** Extract the originating IP, respecting Vercel / proxy X-Forwarded-For. */
+function getClientIp(req: Request): string | null {
+  const fwd = req.headers['x-forwarded-for'];
+  if (typeof fwd === 'string') return fwd.split(',')[0].trim();
+  return req.ip ?? null;
 }
 
 // ─── POST /api/emergency/incidents ───────────────────────────────────────────
@@ -148,6 +156,16 @@ emergencyRouter.get(
           timestamp: new Date().toISOString(),
         });
       }
+
+      logAuditEvent({
+        action:     'incident_viewed',
+        entityType: 'EmergencyIncident',
+        entityId:   incident.serverIncidentId,
+        ipAddress:  getClientIp(req),
+        userAgent:  req.headers['user-agent'] ?? null,
+        metadata:   { status: incident.status },
+      });
+
       return res.json({ success: true, incident });
     } catch (err) {
       if (err instanceof ServiceError) {
@@ -166,7 +184,7 @@ emergencyRouter.get(
 emergencyRouter.patch(
   '/incidents/:id/status',
   async (req: Request, res: Response<UpdateStatusResponse | ErrorResponse>) => {
-    const { status, operatorNote } = req.body as UpdateStatusRequest;
+    const { status, operatorNote, operatorId } = req.body as UpdateStatusRequest;
 
     if (!status || !INCIDENT_STATUS_ORDER.includes(status as IncidentStatus)) {
       return res.status(400).json({
@@ -180,7 +198,8 @@ emergencyRouter.patch(
       const updated = await updateIncidentStatus(
         req.params.id,
         status as IncidentStatus,
-        operatorNote
+        operatorNote,
+        operatorId
       );
 
       console.log(

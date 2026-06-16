@@ -129,9 +129,11 @@ export interface ServerIncident {
 }
 
 export interface StatusHistoryEntry {
-  status: IncidentStatus;
-  changedAt: string;       // ISO 8601
+  fromStatus: IncidentStatus | null;  // null for the initial 'queued' entry
+  status: IncidentStatus;             // toStatus
+  changedAt: string;                  // ISO 8601
   operatorNote?: string;
+  changedById?: string | null;        // operatorId if provided
 }
 
 // ─── API Request / Response shapes ───────────────────────────────────────────
@@ -146,6 +148,7 @@ export interface CreateIncidentResponse {
 export interface UpdateStatusRequest {
   status: IncidentStatus;
   operatorNote?: string;
+  operatorId?: string;     // forwarded to audit log as actorUserId
 }
 
 export interface UpdateStatusResponse {

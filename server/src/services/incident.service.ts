@@ -16,6 +16,7 @@
 
 import { Prisma } from '@prisma/client';
 import prisma from '../db/prisma';
+import { logAuditEvent } from './audit.service';
 import type {
   ServerIncident,
   StatusHistoryEntry,
@@ -54,9 +55,11 @@ function toServerIncident(r: IncidentWithRelations): ServerIncident {
   const nearestResource = (r.nearestResourceSnapshot as NearestResource | null) ?? null;
 
   const statusHistory: StatusHistoryEntry[] = r.statusHistory.map((h) => ({
+    fromStatus: (h.fromStatus as IncidentStatus | null) ?? null,
     status: h.toStatus as IncidentStatus,
     changedAt: h.changedAt.toISOString(),
-    ...(h.note ? { operatorNote: h.note } : {}),
+    ...(h.note       ? { operatorNote: h.note }          : {}),
+    ...(h.operatorId ? { changedById: h.operatorId }     : {}),
   }));
 
   return {
@@ -263,19 +266,16 @@ export async function createIncident(
     });
 
     // Write audit log (outside transaction — non-critical)
-    prisma.auditLog.create({
-      data: {
-        incidentId: incident.id,
-        action: 'incident.created',
-        actorId: packet.userId ?? null,
-        details: {
-          incidentType: packet.incidentType,
-          lat: packet.latitude,
-          lon: packet.longitude,
-        },
+    logAuditEvent({
+      action:      'incident_created',
+      actorUserId: packet.userId ?? null,
+      entityType:  'EmergencyIncident',
+      entityId:    incident.serverIncidentId,
+      metadata: {
+        incidentType: packet.incidentType,
+        lat:          packet.latitude,
+        lon:          packet.longitude,
       },
-    }).catch((err) => {
-      console.warn('[ER-API] Audit log write failed (non-critical):', err);
     });
 
     return toServerIncident(incident);
@@ -331,16 +331,18 @@ export async function updateIncidentStatus(
       });
     });
 
-    // Write audit log (non-critical, fire-and-forget)
-    prisma.auditLog.create({
-      data: {
-        incidentId: existing.id,
-        action: 'status.changed',
-        actorId: operatorId ?? null,
-        details: { from: existing.status, to: newStatus, note: operatorNote ?? null },
+    // Write audit log — captures previousStatus, newStatus, operatorNote, actorUserId
+    logAuditEvent({
+      action:      'status_changed',
+      actorUserId: operatorId ?? null,
+      entityType:  'EmergencyIncident',
+      entityId:    serverIncidentId,
+      metadata: {
+        previousStatus: existing.status,
+        newStatus,
+        operatorNote:   operatorNote ?? null,
+        actorUserId:    operatorId   ?? null,
       },
-    }).catch((err) => {
-      console.warn('[ER-API] Audit log write failed (non-critical):', err);
     });
 
     return toServerIncident(updated);

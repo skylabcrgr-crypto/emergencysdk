@@ -10,6 +10,7 @@
 import express from 'express';
 import cors from 'cors';
 import { emergencyRouter } from './routes/emergency.routes';
+import { adminRouter } from './routes/admin.routes';
 
 const app = express();
 
@@ -29,7 +30,7 @@ app.use(
       /^https:\/\/.*\.vercel\.app$/, // Vercel preview + production deployments
     ],
     methods: ['GET', 'POST', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-operator-role'],
   })
 );
 
@@ -45,6 +46,7 @@ app.use((req, _res, next) => {
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
 app.use('/api/emergency', emergencyRouter);
+app.use('/api/admin',     adminRouter);
 
 // ─── Health check ─────────────────────────────────────────────────────────────
 

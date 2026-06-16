@@ -196,24 +196,31 @@ export function IncidentDetail({ incident, onUpdated }: IncidentDetailProps) {
         </Section>
       )}
 
-      {/* Status History */}
+      {/* Status History — shows full from → to transitions, not raw audit logs */}
       <Section title="Status History">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {[...incident.statusHistory].reverse().map((entry, i) => (
             <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
               <span style={{
                 display: 'inline-block',
                 width: 8, height: 8, borderRadius: 4,
-                backgroundColor: INCIDENT_STATUS_COLORS[entry.status],
+                backgroundColor: INCIDENT_STATUS_COLORS[entry.status] ?? '#444',
                 marginTop: 4, flexShrink: 0,
               }} />
               <div>
                 <span style={{ fontSize: 12, color: '#ccc', fontWeight: 600 }}>
-                  {INCIDENT_STATUS_LABELS[entry.status]}
+                  {entry.fromStatus
+                    ? `${INCIDENT_STATUS_LABELS[entry.fromStatus] ?? entry.fromStatus} → ${INCIDENT_STATUS_LABELS[entry.status] ?? entry.status}`
+                    : `${INCIDENT_STATUS_LABELS[entry.status] ?? entry.status} (initial)`}
                 </span>
                 <span style={{ fontSize: 11, color: '#555', marginLeft: 8 }}>
                   {new Date(entry.changedAt).toLocaleString()}
                 </span>
+                {entry.changedById && (
+                  <span style={{ fontSize: 11, color: '#444', marginLeft: 6 }}>
+                    · by {entry.changedById}
+                  </span>
+                )}
                 {entry.operatorNote && (
                   <div style={{ fontSize: 11, color: '#777', fontStyle: 'italic', marginTop: 2 }}>
                     "{entry.operatorNote}"
