@@ -23,21 +23,21 @@ const prisma = new PrismaClient();
 const SEED_USERS = [
   {
     externalId: 'demo-admin',
-    email:      'admin@demo.er',
+    email:      process.env.SEED_ADMIN_EMAIL ?? 'admin@demo.er',
     name:       'Demo Admin',
     role:       'admin',
     password:   process.env.SEED_ADMIN_PASSWORD ?? 'DemoAdmin!2025',
   },
   {
     externalId: 'demo-operator',
-    email:      'operator@demo.er',
+    email:      process.env.SEED_OPERATOR_EMAIL ?? 'operator@demo.er',
     name:       'Demo Operator',
     role:       'operator',
     password:   process.env.SEED_OPERATOR_PASSWORD ?? 'DemoOperator!2025',
   },
   {
     externalId: 'demo-mobile-service',
-    email:      'mobile@demo.er',
+    email:      process.env.SEED_MOBILE_EMAIL ?? 'mobile@demo.er',
     name:       'Mobile SDK Service Account',
     role:       'mobile',
     password:   process.env.SEED_MOBILE_PASSWORD ?? 'DemoMobile!2025',
