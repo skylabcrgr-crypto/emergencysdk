@@ -3,12 +3,16 @@
 // Database: PostgreSQL (Supabase recommended for Vercel deployments)
 //
 // Connection URLs:
-//   DATABASE_URL  — Transaction pooler URL (used by Vercel serverless queries)
-//                   Supabase: postgresql://postgres.[REF]:[PWD]@aws-0-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true
-//   DIRECT_URL    — Direct connection URL (used by Prisma Migrate only)
-//                   Supabase: postgresql://postgres:[PWD]@db.[REF].supabase.co:5432/postgres
+//   DATABASE_URL  — Transaction pooler (runtime queries). IPv4-compatible.
+//                   postgresql://postgres.[REF]:[PWD]@aws-0-[REGION].pooler.supabase.com:6543/postgres?pgbouncer=true
+//   DIRECT_URL    — Session pooler (Prisma Migrate / db push). IPv4-compatible.
+//                   postgresql://postgres.[REF]:[PWD]@aws-0-[REGION].pooler.supabase.com:5432/postgres
 //
-// Local dev: both can point to the same direct Postgres URL.
+//   ⚠ Do NOT use the direct connection host db.[REF].supabase.co:5432 from
+//     Railway/Vercel — it is IPv6-only and unreachable from their egress.
+//     Use the Session pooler (port 5432, pooler host) for DIRECT_URL instead.
+//
+// Local dev: both can point to the same local/direct Postgres URL.
 
 generator client {
   provider      = "prisma-client-js"
