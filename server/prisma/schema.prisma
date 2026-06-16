@@ -114,6 +114,10 @@ model EmergencyIncident {
   packetTimestamp  DateTime?
   sentAt           DateTime?
 
+  // ── Operator assignment ─────────────────────────────────────────────────────────
+  assignedOperatorId String?
+  assignedAgency     String?
+
   // ── Server-side lifecycle ─────────────────────────────────────────────────
   status     IncidentStatus @default(queued)
   receivedAt DateTime       @default(now())

@@ -95,6 +95,7 @@ export interface ServerIncident {
   appVersion: string;
   batteryLevel: number | null;
   batteryCharging: boolean | null;
+  batteryState: string;
   signalStatus: string;
   networkType: string;
   nearestResource: NearestResource | null;
@@ -105,4 +106,20 @@ export interface ServerIncident {
   updatedAt: string;
   operatorNotes: string;
   statusHistory: StatusHistoryEntry[];
+  staleLocation: boolean;
+  sourceApp: string;
+  assignedOperatorId: string | null;
+  assignedAgency: string | null;
+}
+
+// ─── Filter state (client-side) ───────────────────────────────────────────────
+
+export interface FilterState {
+  statuses:   IncidentStatus[];
+  types:      string[];
+  counties:   string[];
+  agencies:   string[];
+  sourceApps: string[];
+  dateFrom:   string | null;   // YYYY-MM-DD
+  dateTo:     string | null;   // YYYY-MM-DD
 }

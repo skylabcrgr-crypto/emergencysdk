@@ -126,6 +126,11 @@ export interface ServerIncident {
   updatedAt: string;       // ISO 8601 — last status change
   operatorNotes: string;   // Free-text notes added by dashboard operator
   statusHistory: StatusHistoryEntry[];
+  sourceApp: string;
+  staleLocation: boolean;
+  batteryState: string;
+  assignedOperatorId: string | null;
+  assignedAgency: string | null;
 }
 
 export interface StatusHistoryEntry {
@@ -149,6 +154,17 @@ export interface UpdateStatusRequest {
   status: IncidentStatus;
   operatorNote?: string;
   operatorId?: string;     // forwarded to audit log as actorUserId
+}
+
+export interface NoteRequest {
+  note: string;
+  operatorId?: string;
+}
+
+export interface AssignmentRequest {
+  assignedOperatorId?: string | null;
+  assignedAgency?: string | null;
+  operatorId?: string;
 }
 
 export interface UpdateStatusResponse {

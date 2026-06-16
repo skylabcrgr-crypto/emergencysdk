@@ -25,6 +25,8 @@ import {
   getIncidentById,
   createIncident,
   updateIncidentStatus,
+  addOperatorNote,
+  updateIncidentAssignment,
   checkDatabaseHealth,
   ServiceError,
 } from '../services/incident.service';
@@ -36,6 +38,8 @@ import type {
   UpdateStatusResponse,
   ErrorResponse,
   IncidentStatus,
+  NoteRequest,
+  AssignmentRequest,
 } from '../types';
 import { INCIDENT_STATUS_ORDER } from '../types';
 
@@ -234,5 +238,52 @@ emergencyRouter.get(
       timestamp: new Date().toISOString(),
       database: process.env.DATABASE_URL ? 'configured' : 'not configured — set DATABASE_URL',
     });
+  }
+);
+
+// ─── PATCH /api/emergency/incidents/:id/note ───────────────────────────────────────
+// Append a standalone operator note without changing incident status.
+
+emergencyRouter.patch(
+  '/incidents/:id/note',
+  async (req: Request, res: Response) => {
+    const { note, operatorId } = req.body as NoteRequest;
+    if (!note || typeof note !== 'string' || !note.trim()) {
+      return res.status(400).json({
+        success: false, error: 'note text is required', timestamp: new Date().toISOString(),
+      });
+    }
+    try {
+      const updated = await addOperatorNote(req.params.id, note.trim().slice(0, 1000), operatorId);
+      return res.json({ success: true, incident: updated });
+    } catch (err) {
+      if (err instanceof ServiceError) {
+        const { status, message } = serviceErrorToHttp(err);
+        return res.status(status).json({ success: false, error: message, timestamp: new Date().toISOString() });
+      }
+      console.error('[ER-API] PATCH /incidents/:id/note error:', err);
+      return res.status(500).json({ success: false, error: 'Internal server error', timestamp: new Date().toISOString() });
+    }
+  }
+);
+
+// ─── PATCH /api/emergency/incidents/:id/assign ──────────────────────────────────────
+// Update assigned operator and/or agency (does not change status).
+
+emergencyRouter.patch(
+  '/incidents/:id/assign',
+  async (req: Request, res: Response) => {
+    try {
+      const body = req.body as AssignmentRequest;
+      const updated = await updateIncidentAssignment(req.params.id, body);
+      return res.json({ success: true, incident: updated });
+    } catch (err) {
+      if (err instanceof ServiceError) {
+        const { status, message } = serviceErrorToHttp(err);
+        return res.status(status).json({ success: false, error: message, timestamp: new Date().toISOString() });
+      }
+      console.error('[ER-API] PATCH /incidents/:id/assign error:', err);
+      return res.status(500).json({ success: false, error: 'Internal server error', timestamp: new Date().toISOString() });
+    }
   }
 );

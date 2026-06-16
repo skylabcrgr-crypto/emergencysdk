@@ -29,6 +29,7 @@ export type AuditAction =
   | 'incident_viewed'
   | 'status_changed'
   | 'operator_note_added'
+  | 'assignment_changed'
   | 'user_login'
   | 'failed_login'
   | 'dashboard_access_denied';

@@ -65,14 +65,43 @@ export async function fetchIncident(id: string): Promise<ServerIncident> {
 export async function updateIncidentStatus(
   id: string,
   status: IncidentStatus,
-  operatorNote?: string
+  operatorNote?: string,
+  operatorId?: string
 ): Promise<ServerIncident> {
   const data = await request<UpdateStatusResponse>(
     `/incidents/${id}/status`,
     {
       method: 'PATCH',
-      body: JSON.stringify({ status, operatorNote }),
+      body: JSON.stringify({ status, operatorNote, operatorId }),
     }
+  );
+  return data.incident;
+}
+
+interface NoteResponse { success: boolean; incident: ServerIncident }
+interface AssignResponse { success: boolean; incident: ServerIncident }
+
+export async function addOperatorNote(
+  id: string,
+  note: string,
+  operatorId?: string
+): Promise<ServerIncident> {
+  const data = await request<NoteResponse>(
+    `/incidents/${id}/note`,
+    { method: 'PATCH', body: JSON.stringify({ note, operatorId }) }
+  );
+  return data.incident;
+}
+
+export async function updateIncidentAssignment(
+  id: string,
+  assignedOperatorId: string | null,
+  assignedAgency: string | null,
+  operatorId?: string
+): Promise<ServerIncident> {
+  const data = await request<AssignResponse>(
+    `/incidents/${id}/assign`,
+    { method: 'PATCH', body: JSON.stringify({ assignedOperatorId, assignedAgency, operatorId }) }
   );
   return data.incident;
 }

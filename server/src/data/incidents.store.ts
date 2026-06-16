@@ -68,6 +68,11 @@ function makeSeed(
     updatedAt: receivedAt,
     operatorNotes: '',
     statusHistory: [{ fromStatus: null, status, changedAt: receivedAt }],
+    sourceApp: 'er-offline-sdk',
+    staleLocation: false,
+    batteryState: 'unplugged',
+    assignedOperatorId: null,
+    assignedAgency: null,
   };
 }
 

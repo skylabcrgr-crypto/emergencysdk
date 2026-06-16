@@ -23,6 +23,8 @@ import type {
   IncidentStatus,
   NearestResource,
   IncomingPacket,
+  NoteRequest,
+  AssignmentRequest,
 } from '../types';
 
 // ─── Error Type ───────────────────────────────────────────────────────────────
@@ -86,6 +88,11 @@ function toServerIncident(r: IncidentWithRelations): ServerIncident {
     updatedAt: r.updatedAt.toISOString(),
     operatorNotes: r.operatorNotes,
     statusHistory,
+    sourceApp: r.sourceApp,
+    staleLocation: r.staleLocation,
+    batteryState: r.batteryState,
+    assignedOperatorId: r.assignedOperatorId ?? null,
+    assignedAgency: r.assignedAgency ?? null,
   };
 }
 
@@ -342,6 +349,85 @@ export async function updateIncidentStatus(
         newStatus,
         operatorNote:   operatorNote ?? null,
         actorUserId:    operatorId   ?? null,
+      },
+    });
+
+    return toServerIncident(updated);
+  } catch (err) {
+    throw wrapPrismaError(err);
+  }
+}
+
+/**
+ * Appends a standalone operator note without changing status.
+ */
+export async function addOperatorNote(
+  serverIncidentId: string,
+  note: string,
+  operatorId?: string
+): Promise<ServerIncident> {
+  try {
+    const existing = await prisma.emergencyIncident.findUnique({
+      where: { serverIncidentId },
+      select: { id: true, operatorNotes: true },
+    });
+    if (!existing) throw new ServiceError('NOT_FOUND', `Incident ${serverIncidentId} not found`);
+
+    const now = new Date();
+    const appendedNotes =
+      `${existing.operatorNotes ? existing.operatorNotes + '\n' : ''}[${now.toLocaleTimeString()}] ${note}`;
+
+    const updated = await prisma.emergencyIncident.update({
+      where: { id: existing.id },
+      data: { operatorNotes: appendedNotes },
+      include: INCIDENT_INCLUDE,
+    });
+
+    logAuditEvent({
+      action:      'operator_note_added',
+      actorUserId: operatorId ?? null,
+      entityType:  'EmergencyIncident',
+      entityId:    serverIncidentId,
+      metadata:    { noteLength: note.length },
+    });
+
+    return toServerIncident(updated);
+  } catch (err) {
+    throw wrapPrismaError(err);
+  }
+}
+
+/**
+ * Updates the assigned operator and/or agency for an incident.
+ */
+export async function updateIncidentAssignment(
+  serverIncidentId: string,
+  req: AssignmentRequest
+): Promise<ServerIncident> {
+  try {
+    const existing = await prisma.emergencyIncident.findUnique({
+      where: { serverIncidentId },
+      select: { id: true },
+    });
+    if (!existing) throw new ServiceError('NOT_FOUND', `Incident ${serverIncidentId} not found`);
+
+    const updated = await prisma.emergencyIncident.update({
+      where: { id: existing.id },
+      data: {
+        assignedOperatorId: req.assignedOperatorId ?? null,
+        assignedAgency:     req.assignedAgency     ?? null,
+      },
+      include: INCIDENT_INCLUDE,
+    });
+
+    logAuditEvent({
+      action:      'assignment_changed',
+      actorUserId: req.operatorId ?? null,
+      entityType:  'EmergencyIncident',
+      entityId:    serverIncidentId,
+      metadata:    {
+        assignedOperatorId: req.assignedOperatorId ?? null,
+        assignedAgency:     req.assignedAgency     ?? null,
       },
     });
 
