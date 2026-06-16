@@ -63,6 +63,26 @@ export default function App() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+
+      {/* ── Legal disclaimer banner ─────────────────────────────────────────── */}
+      <div style={{
+        backgroundColor: '#1a0a00',
+        borderBottom: '1px solid #5c2800',
+        padding: '6px 16px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        flexShrink: 0,
+      }}>
+        <span style={{ fontSize: 16, flexShrink: 0 }}>⚠️</span>
+        <span style={{ color: '#FF8F00', fontSize: 12, lineHeight: 1.5 }}>
+          <strong>DEMO SYSTEM — NOT A REPLACEMENT FOR 911.</strong>
+          {' '}This dashboard is a supplemental tool for evaluation purposes only.
+          If a victim can call 911, direct them to call 911 immediately.
+          No SLA or guaranteed response time. Pilot data only — no real dispatch integration active.
+        </span>
+      </div>
+
       {/* Top stats bar */}
       <StatsBar incidents={incidents} backendOnline={backendOnline} />
 
