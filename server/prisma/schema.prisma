@@ -1,0 +1,159 @@
+// Prisma schema for the Emergency Response Offline SDK backend.
+//
+// Database: PostgreSQL (Supabase recommended for Vercel deployments)
+//
+// Connection URLs:
+//   DATABASE_URL  — Transaction pooler URL (used by Vercel serverless queries)
+//                   Supabase: postgresql://postgres.[REF]:[PWD]@aws-0-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true
+//   DIRECT_URL    — Direct connection URL (used by Prisma Migrate only)
+//                   Supabase: postgresql://postgres:[PWD]@db.[REF].supabase.co:5432/postgres
+//
+// Local dev: both can point to the same direct Postgres URL.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum IncidentStatus {
+  queued
+  received
+  reviewing
+  dispatched
+  acknowledged
+  resolved
+  false_alarm
+  closed
+}
+
+// ─── Models ───────────────────────────────────────────────────────────────────
+
+/// Represents the operator/dispatching side user (future RBAC).
+model User {
+  id         String   @id @default(cuid())
+  externalId String?  @unique     // Agency SSO / OAuth subject ID
+  deviceId   String?
+  appVersion String?
+  role       String   @default("mobile") // mobile | operator | admin | viewer
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+/// Registered emergency resource (sheriff, coast guard, DNR post, etc.)
+/// Pre-seeded from michiganEmergencyResources.json.
+model EmergencyResource {
+  id        String @id           // Matches the ID in the mobile SDK resource JSON
+  name      String
+  type      String
+  phone     String
+  county    String
+  latitude  Float
+  longitude Float
+  address   String?
+  hours     String?
+  notes     String?
+
+  incidents EmergencyIncident[]
+}
+
+/// Core incident record — one per SOS packet received from the mobile SDK.
+model EmergencyIncident {
+  id             String @id @default(cuid())
+  /// Auto-incrementing display number. Formatted as "INC-0001" in API responses.
+  incidentNumber Int    @default(autoincrement())
+
+  /// Original packet UUID from the mobile SDK.
+  externalPacketId String @unique
+  /// Formatted display ID (e.g. "INC-0001"). Set after insert using incidentNumber.
+  serverIncidentId String @unique
+
+  // ── Submitter identity (placeholder until real auth is wired) ──────────────
+  userId     String?
+  deviceId   String?
+  appVersion String?
+
+  // ── Incident classification ────────────────────────────────────────────────
+  incidentType String
+  sourceApp    String @default("er-offline-sdk")
+
+  // ── GPS ───────────────────────────────────────────────────────────────────
+  latitude      Float
+  longitude     Float
+  accuracy      Float
+  altitude      Float?
+  staleLocation Boolean @default(false)
+
+  // ── Device telemetry ──────────────────────────────────────────────────────
+  batteryLevel        Float?
+  batteryState        String  @default("unknown")
+  batteryCharging     Boolean?
+  lowPowerModeEnabled Boolean?
+  signalStatus        String
+  networkType         String
+
+  // ── Nearest resource (FK + JSON snapshot for easy API serialization) ───────
+  nearestResourceId          String?
+  nearestResource            EmergencyResource? @relation(fields: [nearestResourceId], references: [id])
+  nearestResourceDistanceMiles Float?
+  /// Full NearestResource snapshot at time of incident (includes distanceMiles, warning).
+  nearestResourceSnapshot    Json?
+
+  // ── Notes ─────────────────────────────────────────────────────────────────
+  additionalNotes String @default("")
+  operatorNotes   String @default("")
+
+  // ── Packet metadata ───────────────────────────────────────────────────────
+  retryCount       Int      @default(0)
+  packetTimestamp  DateTime?
+  sentAt           DateTime?
+
+  // ── Server-side lifecycle ─────────────────────────────────────────────────
+  status     IncidentStatus @default(queued)
+  receivedAt DateTime       @default(now())
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  // ── Relations ──────────────────────────────────────────────────────────────
+  statusHistory IncidentStatusHistory[]
+  auditLogs     AuditLog[]
+}
+
+/// Immutable record of every status transition on an incident.
+model IncidentStatusHistory {
+  id         String   @id @default(cuid())
+  incidentId String
+  incident   EmergencyIncident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  fromStatus String?  // null for initial 'queued' entry
+  toStatus   String
+  operatorId String?
+  note       String?
+  changedAt  DateTime @default(now())
+
+  @@index([incidentId])
+}
+
+/// Structured, append-only audit trail for every significant action.
+model AuditLog {
+  id         String    @id @default(cuid())
+  incidentId String?
+  incident   EmergencyIncident? @relation(fields: [incidentId], references: [id], onDelete: SetNull)
+
+  action    String   // e.g. "incident.created", "status.changed", "incident.viewed"
+  actorId   String?
+  actorRole String?
+  ip        String?
+  userAgent String?
+  details   Json?
+  timestamp DateTime @default(now())
+
+  @@index([incidentId])
+  @@index([timestamp])
+}

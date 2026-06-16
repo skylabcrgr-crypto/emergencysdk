@@ -14,20 +14,24 @@
 // ─── Incident Status ──────────────────────────────────────────────────────────
 
 export type IncidentStatus =
-  | 'queued'      // Received, not yet reviewed
-  | 'received'    // Acknowledged by a human operator
-  | 'reviewing'   // Operator actively reviewing
-  | 'dispatched'  // Field unit assigned and en route
-  | 'resolved'    // Incident closed successfully
-  | 'false_alarm'; // Closed as no action needed
+  | 'queued'        // Received, not yet reviewed
+  | 'received'      // Acknowledged by a human operator
+  | 'reviewing'     // Operator actively reviewing
+  | 'dispatched'    // Field unit assigned and en route
+  | 'acknowledged'  // Victim confirmed contact with responder
+  | 'resolved'      // Incident closed successfully
+  | 'false_alarm'   // Closed as no action needed
+  | 'closed';       // Administratively closed
 
 export const INCIDENT_STATUS_ORDER: IncidentStatus[] = [
   'queued',
   'received',
   'reviewing',
   'dispatched',
+  'acknowledged',
   'resolved',
   'false_alarm',
+  'closed',
 ];
 
 export const INCIDENT_STATUS_LABELS: Record<IncidentStatus, string> = {
@@ -35,8 +39,10 @@ export const INCIDENT_STATUS_LABELS: Record<IncidentStatus, string> = {
   received: 'Received',
   reviewing: 'Reviewing',
   dispatched: 'Dispatched',
+  acknowledged: 'Acknowledged',
   resolved: 'Resolved',
   false_alarm: 'False Alarm',
+  closed: 'Closed',
 };
 
 export const INCIDENT_STATUS_COLORS: Record<IncidentStatus, string> = {
@@ -44,8 +50,10 @@ export const INCIDENT_STATUS_COLORS: Record<IncidentStatus, string> = {
   received: '#1565C0',
   reviewing: '#E65C00',
   dispatched: '#F0A500',
+  acknowledged: '#00838F',
   resolved: '#2E7D32',
   false_alarm: '#555555',
+  closed: '#333333',
 };
 
 // ─── Nearest Resource (mirrored from mobile SDK) ──────────────────────────────
@@ -77,6 +85,9 @@ export interface IncomingPacket {
   appVersion: string;
   batteryLevel: number | null;
   batteryCharging: boolean | null;
+  batteryState?: string;
+  lowPowerModeEnabled?: boolean | null;
+  staleLocation?: boolean;
   signalStatus: string;
   networkType: string;
   nearestResource: NearestResource | null;
