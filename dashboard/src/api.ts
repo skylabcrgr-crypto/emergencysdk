@@ -1,12 +1,14 @@
 /**
  * api.ts
  * Typed API client for the dashboard → backend communication.
- * All calls go through the Vite dev proxy (/api → localhost:3001).
+ * In development, Vite proxies /api → localhost:3001.
+ * In production, VITE_API_BASE_URL points to the Railway server.
  */
 
 import type { ServerIncident, IncidentStatus, EmergencyResourceRecord } from './types';
 
-const BASE = '/api/emergency';
+const API_ORIGIN = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ?? '';
+const BASE = `${API_ORIGIN}/api/emergency`;
 
 async function request<T>(
   path: string,
