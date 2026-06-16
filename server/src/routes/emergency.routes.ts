@@ -47,6 +47,7 @@ import {
   resourcesQuerySchema,
   nearestResourcesQuerySchema,
 } from '../validation/resource.schema';
+import { requireAuth, requireRole } from '../middleware/auth.middleware';
 import type {
   CreateIncidentResponse,
   UpdateStatusResponse,
@@ -86,6 +87,7 @@ function getClientIp(req: Request): string | null {
 
 emergencyRouter.post(
   '/incidents',
+  requireAuth,
   async (req: Request, res: Response<CreateIncidentResponse | ErrorResponse>) => {
     const parsed = createIncidentSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -127,6 +129,7 @@ emergencyRouter.post(
 
 emergencyRouter.get(
   '/incidents',
+  requireRole('operator', 'admin', 'viewer'),
   async (req: Request, res: Response) => {
     const parsed = incidentQuerySchema.safeParse(req.query);
     if (!parsed.success) {
@@ -155,6 +158,7 @@ emergencyRouter.get(
 
 emergencyRouter.get(
   '/incidents/:id',
+  requireRole('operator', 'admin', 'viewer'),
   async (req: Request, res: Response) => {
     try {
       const incident = await getIncidentById(req.params.id);
@@ -190,6 +194,7 @@ emergencyRouter.get(
 
 emergencyRouter.patch(
   '/incidents/:id/status',
+  requireRole('operator', 'admin'),
   async (req: Request, res: Response<UpdateStatusResponse | ErrorResponse>) => {
     const parsed = updateStatusSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -229,6 +234,7 @@ emergencyRouter.get(
 
 emergencyRouter.patch(
   '/incidents/:id/note',
+  requireRole('operator', 'admin'),
   async (req: Request, res: Response) => {
     const parsed = noteSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -252,6 +258,7 @@ emergencyRouter.patch(
 
 emergencyRouter.patch(
   '/incidents/:id/assign',
+  requireRole('operator', 'admin'),
   async (req: Request, res: Response) => {
     const parsed = assignmentSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -276,6 +283,7 @@ emergencyRouter.patch(
 
 emergencyRouter.get(
   '/resources/nearest',
+  requireAuth,
   async (req: Request, res: Response) => {
     const parsed = nearestResourcesQuerySchema.safeParse(req.query);
     if (!parsed.success) {
@@ -300,6 +308,7 @@ emergencyRouter.get(
 
 emergencyRouter.get(
   '/resources',
+  requireAuth,
   async (req: Request, res: Response) => {
     const parsed = resourcesQuerySchema.safeParse(req.query);
     if (!parsed.success) {

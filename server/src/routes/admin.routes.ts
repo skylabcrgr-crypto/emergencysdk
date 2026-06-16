@@ -2,10 +2,8 @@
  * admin.routes.ts
  * Protected admin API routes.
  *
- * All routes require the `x-operator-role: admin` header.
- *
- * TODO (Command 3 — JWT Auth): Replace requireAdmin() with a real
- * JWT verification middleware that extracts role from the token claims.
+ * All routes require an authenticated user with the `admin` role
+ * (enforced by requireAuth + requireRole('admin') when AUTH_ENABLED=true).
  *
  * Endpoints:
  *   GET /api/admin/audit-logs   — Paginated, filtered audit log viewer
@@ -14,50 +12,20 @@
  * for AuditLog. Audit records are immutable and append-only.
  */
 
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router, Request, Response } from 'express';
 import { ZodError } from 'zod';
-import { getAuditLogs, logAuditEvent } from '../services/audit.service';
+import { getAuditLogs } from '../services/audit.service';
 import { auditLogsQuerySchema } from '../validation/admin.schema';
+import { requireAuth, requireRole } from '../middleware/auth.middleware';
 
 export const adminRouter = Router();
-
-// ─── Admin role guard ─────────────────────────────────────────────────────────
-
-/**
- * requireAdmin — stub role guard.
- * Rejects requests that do not carry `x-operator-role: admin`.
- * Every rejection writes a `dashboard_access_denied` audit event.
- */
-function requireAdmin(req: Request, res: Response, next: NextFunction): void {
-  const role = req.headers['x-operator-role'];
-
-  if (role !== 'admin') {
-    const fwd = req.headers['x-forwarded-for'];
-    const ip  = typeof fwd === 'string' ? fwd.split(',')[0].trim() : (req.ip ?? null);
-
-    logAuditEvent({
-      action:    'dashboard_access_denied',
-      ipAddress: ip,
-      userAgent: req.headers['user-agent'] ?? null,
-      metadata:  { path: req.path, providedRole: role ?? 'missing' },
-    });
-
-    res.status(403).json({
-      success:   false,
-      error:     'Forbidden. Admin role required. Set header x-operator-role: admin.',
-      timestamp: new Date().toISOString(),
-    });
-    return;
-  }
-
-  next();
-}
 
 // ─── GET /api/admin/audit-logs ────────────────────────────────────────────────
 
 adminRouter.get(
   '/audit-logs',
-  requireAdmin,
+  requireAuth,
+  requireRole('admin'),
   async (req: Request, res: Response): Promise<void> => {
     const parsed = auditLogsQuerySchema.safeParse(req.query);
     if (!parsed.success) {

@@ -8,6 +8,8 @@
     "build": "prisma generate && tsc",
     "start": "node dist/index.js",
     "ts:check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",

@@ -28,6 +28,18 @@ const schema = z.object({
    */
   CORS_ORIGINS: z.string().min(1, 'CORS_ORIGINS is required'),
 
+  /**
+   * AUTH_ENABLED — feature flag for JWT auth enforcement.
+   * 'false' (default): requireAuth/requireRole attach req.user when a valid
+   *   token is present but do NOT block unauthenticated requests. Keeps the
+   *   existing demo flow working while accounts and dashboard login are wired.
+   * 'true': all protected routes require a valid token (and role).
+   */
+  AUTH_ENABLED: z.enum(['true', 'false']).default('false'),
+
+  /** Token lifetime, e.g. '8h', '30m', '7d'. */
+  TOKEN_TTL: z.string().min(1).default('8h'),
+
   PORT:     z.coerce.number().int().positive().default(3001),
   NODE_ENV: z.enum(['development', 'staging', 'production', 'test']).default('development'),
 });

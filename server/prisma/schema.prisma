@@ -44,9 +44,16 @@ enum IncidentStatus {
 model User {
   id         String   @id @default(cuid())
   externalId String?  @unique     // Agency SSO / OAuth subject ID
+
+  // ── Local auth (JWT login) ─────────────────────────────────────────────────
+  email        String? @unique   // login identifier for operator/admin accounts
+  passwordHash String?           // bcrypt hash — null for SSO-only or mobile users
+  name         String?           // display name shown in the dashboard
+
   deviceId   String?
   appVersion String?
   role       String   @default("mobile") // mobile | operator | admin | viewer
+  isActive   Boolean  @default(true)      // disable an account without deleting it
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }

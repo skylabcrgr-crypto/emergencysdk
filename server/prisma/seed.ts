@@ -12,8 +12,37 @@
  */
 
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
+
+// ─── Demo accounts (JWT login) ────────────────────────────────────────────────
+// Passwords come from env in real deployments; defaults are for local demo only.
+// These let the dashboard log in and the mobile demo obtain a token once
+// AUTH_ENABLED=true. Rotate before any real pilot.
+const SEED_USERS = [
+  {
+    externalId: 'demo-admin',
+    email:      'admin@demo.er',
+    name:       'Demo Admin',
+    role:       'admin',
+    password:   process.env.SEED_ADMIN_PASSWORD ?? 'DemoAdmin!2025',
+  },
+  {
+    externalId: 'demo-operator',
+    email:      'operator@demo.er',
+    name:       'Demo Operator',
+    role:       'operator',
+    password:   process.env.SEED_OPERATOR_PASSWORD ?? 'DemoOperator!2025',
+  },
+  {
+    externalId: 'demo-mobile-service',
+    email:      'mobile@demo.er',
+    name:       'Mobile SDK Service Account',
+    role:       'mobile',
+    password:   process.env.SEED_MOBILE_PASSWORD ?? 'DemoMobile!2025',
+  },
+];
 
 const SEED_RESOURCES = [
   {
@@ -162,6 +191,30 @@ const SEED_INCIDENTS = [
 
 async function main() {
   console.log('🌱 Seeding database...');
+
+  // Upsert demo user accounts
+  for (const u of SEED_USERS) {
+    const passwordHash = await bcrypt.hash(u.password, 12);
+    await prisma.user.upsert({
+      where: { externalId: u.externalId },
+      create: {
+        externalId:   u.externalId,
+        email:        u.email,
+        name:         u.name,
+        role:         u.role,
+        passwordHash,
+        isActive:     true,
+      },
+      update: {
+        email: u.email,
+        name:  u.name,
+        role:  u.role,
+        passwordHash,
+        isActive: true,
+      },
+    });
+    console.log(`  ✓ User: ${u.email} (${u.role})`);
+  }
 
   // Upsert resources
   for (const resource of SEED_RESOURCES) {

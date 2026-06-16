@@ -10,14 +10,78 @@ import type { ServerIncident, IncidentStatus, EmergencyResourceRecord } from './
 const API_ORIGIN = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ?? '';
 const BASE = `${API_ORIGIN}/api/emergency`;
 
+// ─── Auth token (JWT Bearer) ───────────────────────────────────────────────────
+// Stored in sessionStorage so it clears when the tab closes.
+
+const TOKEN_KEY = 'er_auth_token';
+
+export function getAuthToken(): string | null {
+  try {
+    return sessionStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function setAuthToken(token: string | null): void {
+  try {
+    if (token) sessionStorage.setItem(TOKEN_KEY, token);
+    else sessionStorage.removeItem(TOKEN_KEY);
+  } catch {
+    /* sessionStorage unavailable — ignore */
+  }
+}
+
+export function isAuthenticated(): boolean {
+  return getAuthToken() !== null;
+}
+
+export function logout(): void {
+  setAuthToken(null);
+}
+
+export interface AuthUser {
+  id: string;
+  email: string | null;
+  name: string | null;
+  role: string;
+}
+
+export async function login(email: string, password: string): Promise<AuthUser> {
+  const res = await fetch(`${API_ORIGIN}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  const body = (await res.json().catch(() => ({}))) as {
+    error?: string;
+    token?: string;
+    user?: AuthUser;
+  };
+  if (!res.ok || !body.token) {
+    throw new Error(body.error ?? `Login failed (HTTP ${res.status})`);
+  }
+  setAuthToken(body.token);
+  return body.user as AuthUser;
+}
+
+function authHeaders(): Record<string, string> {
+  const token = getAuthToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 async function request<T>(
   path: string,
   options?: RequestInit
 ): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     ...options,
   });
+
+  if (res.status === 401) {
+    setAuthToken(null);
+  }
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));

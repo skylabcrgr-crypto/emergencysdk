@@ -34,6 +34,7 @@ import {
 
 import { emergencyRouter } from './routes/emergency.routes';
 import { adminRouter }     from './routes/admin.routes';
+import { authRouter }      from './routes/auth.routes';
 
 const app = express();
 
@@ -96,9 +97,8 @@ app.use('/api/emergency', incidentCreateRateLimit, emergencyRouter);
 // Dashboard / admin — read-heavy, generous but bounded
 app.use('/api/admin', dashboardRateLimit, adminRouter);
 
-// Auth routes (future JWT login/refresh) — strict
-// app.use('/api/auth', strictRateLimit, authRouter);
-void strictRateLimit; // suppress unused-import lint until auth routes are wired
+// Auth login/refresh — strict rate limit (brute-force protection)
+app.use('/api/auth', strictRateLimit, authRouter);
 
 // ─── 404 handler ──────────────────────────────────────────────────────────────
 app.use((_req, res) => {
