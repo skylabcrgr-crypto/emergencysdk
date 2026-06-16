@@ -1,4 +1,6 @@
 # ─── Build stage ─────────────────────────────────────────────────────────────
+# BUILD_DATE arg busts the cache on every push to force a clean rebuild
+ARG BUILD_DATE
 FROM node:20-alpine AS builder
 
 WORKDIR /app
