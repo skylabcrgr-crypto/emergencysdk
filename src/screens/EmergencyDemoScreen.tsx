@@ -23,25 +23,18 @@ import {
   Alert,
 } from 'react-native';
 
-import { EmergencyButton } from '../emergency/components/EmergencyButton';
-import { IncidentTypeSelector } from '../emergency/components/IncidentTypeSelector';
-import { EmergencyStatusCard } from '../emergency/components/EmergencyStatusCard';
-
 import {
+  EmergencyButton,
+  IncidentTypeSelector,
+  EmergencyStatusCard,
   subscribeToNetworkChanges,
   getNetworkState,
-} from '../emergency/services/networkService';
-import {
   flushQueue,
   getQueueCount,
-} from '../emergency/services/offlineQueueService';
-import {
   sendPacketToAPI,
-} from '../emergency/services/emergencyPacketService';
-import {
   saveEmergencyContacts,
   getEmergencyContacts,
-} from '../emergency/services/emergencyContactService';
+} from '@skylab/emergency-sdk';
 
 import type {
   IncidentType,
@@ -49,7 +42,7 @@ import type {
   EmergencyPacket,
   NetworkState,
   EmergencyContact,
-} from '../emergency/types/emergency.types';
+} from '@skylab/emergency-sdk';
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 

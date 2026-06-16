@@ -15,7 +15,9 @@
  */
 
 import { Router, Request, Response, NextFunction } from 'express';
+import { ZodError } from 'zod';
 import { getAuditLogs, logAuditEvent } from '../services/audit.service';
+import { auditLogsQuerySchema } from '../validation/admin.schema';
 
 export const adminRouter = Router();
 
@@ -52,23 +54,22 @@ function requireAdmin(req: Request, res: Response, next: NextFunction): void {
 }
 
 // ─── GET /api/admin/audit-logs ────────────────────────────────────────────────
-//
-// Query params (all optional):
-//   page         — 1-based page number          (default: 1)
-//   limit        — records per page, max 200    (default: 50)
-//   action       — filter by exact action name
-//   entityId     — filter by entityId
-//   actorUserId  — filter by actorUserId
 
 adminRouter.get(
   '/audit-logs',
   requireAdmin,
   async (req: Request, res: Response): Promise<void> => {
-    const page        = Math.max(1, parseInt(String(req.query.page        || '1'),  10));
-    const limit       = Math.min(200, Math.max(1, parseInt(String(req.query.limit  || '50'), 10)));
-    const action      = req.query.action      as string | undefined;
-    const entityId    = req.query.entityId    as string | undefined;
-    const actorUserId = req.query.actorUserId as string | undefined;
+    const parsed = auditLogsQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      const first = (parsed.error as ZodError).issues[0];
+      res.status(400).json({
+        success:   false,
+        error:     `Validation error — ${first?.path.join('.') ?? 'field'}: ${first?.message ?? 'invalid'}`,
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+    const { page, limit, action, entityId, actorUserId } = parsed.data;
 
     try {
       const result = await getAuditLogs({ page, limit, action, entityId, actorUserId });

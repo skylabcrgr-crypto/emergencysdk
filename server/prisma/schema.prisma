@@ -47,7 +47,8 @@ model User {
 }
 
 /// Registered emergency resource (sheriff, coast guard, DNR post, etc.)
-/// Pre-seeded from michiganEmergencyResources.json.
+/// Pre-seeded from michiganEmergencyResources.json or imported from CSV via
+/// `npm run import:resources`.
 model EmergencyResource {
   id        String @id           // Matches the ID in the mobile SDK resource JSON
   name      String
@@ -60,7 +61,15 @@ model EmergencyResource {
   hours     String?
   notes     String?
 
+  // ── CSV import provenance fields ───────────────────────────────────────────
+  agency           String?
+  jurisdiction     String?
+  resourceCategory String?
+
   incidents EmergencyIncident[]
+
+  @@index([type])
+  @@index([county])
 }
 
 /// Core incident record — one per SOS packet received from the mobile SDK.
@@ -113,6 +122,12 @@ model EmergencyIncident {
   retryCount       Int      @default(0)
   packetTimestamp  DateTime?
   sentAt           DateTime?
+
+  /// Expo Push Token from the mobile device that submitted this incident.
+  /// Used by notification.service.ts to deliver status-change push notifications.
+  /// TODO(production/push): Validate and store per-device tokens in a separate
+  ///   UserDevice table to support multiple devices per user and token rotation.
+  pushToken String?
 
   // ── Operator assignment ─────────────────────────────────────────────────────────
   assignedOperatorId String?

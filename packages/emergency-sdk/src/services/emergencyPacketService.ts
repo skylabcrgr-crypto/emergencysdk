@@ -24,6 +24,7 @@ import type {
   NearestResource,
 } from '../types/emergency.types';
 import { getSignalStatus, getNetworkState } from './networkService';
+import { getCachedPushToken } from './pushNotificationService';
 
 // ─── Packet Factory ───────────────────────────────────────────────────────────
 
@@ -81,6 +82,7 @@ export async function buildEmergencyPacket(params: {
     status: 'draft',
     sentAt: null,
     retryCount: 0,
+    pushToken: await getCachedPushToken(),
   };
 }
 

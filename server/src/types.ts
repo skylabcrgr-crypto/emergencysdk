@@ -95,6 +95,8 @@ export interface IncomingPacket {
   status: string;
   sentAt: string | null;
   retryCount: number;
+  /** Expo push token from the mobile device. Stored on the incident for status-change notifications. */
+  pushToken?: string | null;
 }
 
 // ─── Server-side Incident record ──────────────────────────────────────────────

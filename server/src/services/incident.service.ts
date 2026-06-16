@@ -17,6 +17,7 @@
 import { Prisma } from '@prisma/client';
 import prisma from '../db/prisma';
 import { logAuditEvent } from './audit.service';
+import { sendStatusChangeNotification, logMissingPushToken } from './notification.service';
 import type {
   ServerIncident,
   StatusHistoryEntry,
@@ -247,6 +248,7 @@ export async function createIncident(
           packetTimestamp: packet.timestamp ? new Date(packet.timestamp) : now,
           sentAt: packet.sentAt ? new Date(packet.sentAt) : null,
           receivedAt: now,
+          pushToken: packet.pushToken ?? null,
         },
         include: INCIDENT_INCLUDE,
       });
@@ -304,7 +306,7 @@ export async function updateIncidentStatus(
   try {
     const existing = await prisma.emergencyIncident.findUnique({
       where: { serverIncidentId },
-      select: { id: true, status: true, operatorNotes: true },
+      select: { id: true, status: true, operatorNotes: true, pushToken: true },
     });
 
     if (!existing) {
@@ -351,6 +353,14 @@ export async function updateIncidentStatus(
         actorUserId:    operatorId   ?? null,
       },
     });
+
+    // Fire push notification (fire-and-forget, never throws into the main flow)
+    if (existing.pushToken) {
+      sendStatusChangeNotification(existing.pushToken, serverIncidentId, newStatus, operatorNote)
+        .catch((err) => console.error('[incident.service] Push notification error:', err));
+    } else {
+      logMissingPushToken(serverIncidentId, newStatus);
+    }
 
     return toServerIncident(updated);
   } catch (err) {

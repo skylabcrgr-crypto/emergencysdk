@@ -20,6 +20,7 @@
  */
 
 import { Router, Request, Response } from 'express';
+import { ZodError } from 'zod';
 import {
   getAllIncidents,
   getIncidentById,
@@ -31,17 +32,26 @@ import {
   ServiceError,
 } from '../services/incident.service';
 import { logAuditEvent } from '../services/audit.service';
+import {
+  getResources,
+  getNearestResources,
+} from '../services/resource.service';
+import {
+  createIncidentSchema,
+  updateStatusSchema,
+  incidentQuerySchema,
+  noteSchema,
+  assignmentSchema,
+} from '../validation/incident.schema';
+import {
+  resourcesQuerySchema,
+  nearestResourcesQuerySchema,
+} from '../validation/resource.schema';
 import type {
-  IncomingPacket,
   CreateIncidentResponse,
-  UpdateStatusRequest,
   UpdateStatusResponse,
   ErrorResponse,
-  IncidentStatus,
-  NoteRequest,
-  AssignmentRequest,
 } from '../types';
-import { INCIDENT_STATUS_ORDER } from '../types';
 
 export const emergencyRouter = Router();
 
@@ -56,6 +66,14 @@ function serviceErrorToHttp(err: ServiceError): { status: number; message: strin
   }
 }
 
+function zodError(err: ZodError): { status: number; message: string } {
+  const first = err.issues[0];
+  return {
+    status:  400,
+    message: `Validation error — ${first?.path.join('.') ?? 'field'}: ${first?.message ?? 'invalid'}`,
+  };
+}
+
 /** Extract the originating IP, respecting Vercel / proxy X-Forwarded-For. */
 function getClientIp(req: Request): string | null {
   const fwd = req.headers['x-forwarded-for'];
@@ -65,69 +83,57 @@ function getClientIp(req: Request): string | null {
 
 // ─── POST /api/emergency/incidents ───────────────────────────────────────────
 // Receives an EmergencyPacket from the mobile SDK.
-// Set this URL as the `apiUrl` prop in the mobile EmergencyButton.
 
 emergencyRouter.post(
   '/incidents',
   async (req: Request, res: Response<CreateIncidentResponse | ErrorResponse>) => {
-    const packet = req.body as Partial<IncomingPacket>;
-
-    if (
-      typeof packet.latitude !== 'number' ||
-      typeof packet.longitude !== 'number' ||
-      !packet.incidentType
-    ) {
-      return res.status(400).json({
-        success: false,
-        error: 'Missing required fields: latitude, longitude, incidentType',
-        timestamp: new Date().toISOString(),
-      });
+    const parsed = createIncidentSchema.safeParse(req.body);
+    if (!parsed.success) {
+      const { status, message } = zodError(parsed.error);
+      return res.status(status).json({ success: false, error: message, timestamp: new Date().toISOString() });
     }
 
-    // Sanitize free-text input
-    if (packet.additionalNotes) {
-      packet.additionalNotes = String(packet.additionalNotes)
-        .replace(/<[^>]*>/g, '')
-        .slice(0, 500);
-    }
+    const packet = parsed.data;
 
     try {
-      const incident = await createIncident(packet as IncomingPacket);
+      const incident = await createIncident(packet);
 
-      console.log(
-        `[ER-API] ${incident.serverIncidentId} created — type: ${incident.incidentType}, ` +
-        `coords: ${incident.latitude.toFixed(4)}, ${incident.longitude.toFixed(4)}`
-      );
-
-      // Future: POST to RapidSOS PULSE here
-      // Future: emit WebSocket 'incident:created' event
+      process.stdout.write(JSON.stringify({
+        ts:         new Date().toISOString(),
+        event:      'incident_created',
+        incidentId: incident.serverIncidentId,
+        type:       incident.incidentType,
+        lat:        incident.latitude.toFixed(4),
+        lng:        incident.longitude.toFixed(4),
+      }) + '\n');
 
       return res.status(201).json({
-        success: true,
+        success:    true,
         incidentId: incident.serverIncidentId,
-        message: 'Emergency packet received. This is a demo — no real dispatch has occurred.',
-        timestamp: new Date().toISOString(),
+        message:    'Emergency packet received. This is a pre-pilot system — no real dispatch has occurred.',
+        timestamp:  new Date().toISOString(),
       });
     } catch (err) {
       if (err instanceof ServiceError) {
         const { status, message } = serviceErrorToHttp(err);
         return res.status(status).json({ success: false, error: message, timestamp: new Date().toISOString() });
       }
-      console.error('[ER-API] POST /incidents error:', err);
       return res.status(500).json({ success: false, error: 'Internal server error', timestamp: new Date().toISOString() });
     }
   }
 );
 
 // ─── GET /api/emergency/incidents ────────────────────────────────────────────
-// Returns all incidents sorted newest-first.
-// Supports ?status=queued,received and ?type=medical,boating
 
 emergencyRouter.get(
   '/incidents',
   async (req: Request, res: Response) => {
-    const statusFilter = req.query.status as string | undefined;
-    const typeFilter   = req.query.type   as string | undefined;
+    const parsed = incidentQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      const { status, message } = zodError(parsed.error);
+      return res.status(status).json({ success: false, error: message, timestamp: new Date().toISOString() });
+    }
+    const { status: statusFilter, type: typeFilter } = parsed.data;
 
     try {
       const incidents = await getAllIncidents({
@@ -140,7 +146,6 @@ emergencyRouter.get(
         const { status, message } = serviceErrorToHttp(err);
         return res.status(status).json({ success: false, error: message, timestamp: new Date().toISOString() });
       }
-      console.error('[ER-API] GET /incidents error:', err);
       return res.status(500).json({ success: false, error: 'Internal server error', timestamp: new Date().toISOString() });
     }
   }
@@ -155,8 +160,8 @@ emergencyRouter.get(
       const incident = await getIncidentById(req.params.id);
       if (!incident) {
         return res.status(404).json({
-          success: false,
-          error: `Incident ${req.params.id} not found`,
+          success:   false,
+          error:     `Incident ${req.params.id} not found`,
           timestamp: new Date().toISOString(),
         });
       }
@@ -176,58 +181,37 @@ emergencyRouter.get(
         const { status, message } = serviceErrorToHttp(err);
         return res.status(status).json({ success: false, error: message, timestamp: new Date().toISOString() });
       }
-      console.error('[ER-API] GET /incidents/:id error:', err);
       return res.status(500).json({ success: false, error: 'Internal server error', timestamp: new Date().toISOString() });
     }
   }
 );
 
 // ─── PATCH /api/emergency/incidents/:id/status ───────────────────────────────
-// Dashboard operator updates incident status and optionally adds a note.
 
 emergencyRouter.patch(
   '/incidents/:id/status',
   async (req: Request, res: Response<UpdateStatusResponse | ErrorResponse>) => {
-    const { status, operatorNote, operatorId } = req.body as UpdateStatusRequest;
-
-    if (!status || !INCIDENT_STATUS_ORDER.includes(status as IncidentStatus)) {
-      return res.status(400).json({
-        success: false,
-        error: `Invalid status. Must be one of: ${INCIDENT_STATUS_ORDER.join(', ')}`,
-        timestamp: new Date().toISOString(),
-      });
+    const parsed = updateStatusSchema.safeParse(req.body);
+    if (!parsed.success) {
+      const { status, message } = zodError(parsed.error);
+      return res.status(status).json({ success: false, error: message, timestamp: new Date().toISOString() });
     }
+    const { status, operatorNote, operatorId } = parsed.data;
 
     try {
-      const updated = await updateIncidentStatus(
-        req.params.id,
-        status as IncidentStatus,
-        operatorNote,
-        operatorId
-      );
-
-      console.log(
-        `[ER-API] ${req.params.id} → ${status}` +
-        (operatorNote ? ` (${operatorNote.slice(0, 60)})` : '')
-      );
-
-      // Future: if status === 'dispatched', call CAD API
-      // Future: send Expo push notification to victim's device
-
+      const updated = await updateIncidentStatus(req.params.id, status, operatorNote, operatorId);
       return res.json({ success: true, incident: updated, message: `Status updated to ${status}` });
     } catch (err) {
       if (err instanceof ServiceError) {
         const { status: httpStatus, message } = serviceErrorToHttp(err);
         return res.status(httpStatus).json({ success: false, error: message, timestamp: new Date().toISOString() });
       }
-      console.error('[ER-API] PATCH /incidents/:id/status error:', err);
       return res.status(500).json({ success: false, error: 'Internal server error', timestamp: new Date().toISOString() });
     }
   }
 );
 
 // ─── GET /api/emergency/health/db ────────────────────────────────────────────
-// Database connectivity check. Returns 200 if healthy, 503 if not.
 
 emergencyRouter.get(
   '/health/db',
@@ -241,48 +225,96 @@ emergencyRouter.get(
   }
 );
 
-// ─── PATCH /api/emergency/incidents/:id/note ───────────────────────────────────────
-// Append a standalone operator note without changing incident status.
+// ─── PATCH /api/emergency/incidents/:id/note ─────────────────────────────────
 
 emergencyRouter.patch(
   '/incidents/:id/note',
   async (req: Request, res: Response) => {
-    const { note, operatorId } = req.body as NoteRequest;
-    if (!note || typeof note !== 'string' || !note.trim()) {
-      return res.status(400).json({
-        success: false, error: 'note text is required', timestamp: new Date().toISOString(),
-      });
+    const parsed = noteSchema.safeParse(req.body);
+    if (!parsed.success) {
+      const { status, message } = zodError(parsed.error);
+      return res.status(status).json({ success: false, error: message, timestamp: new Date().toISOString() });
     }
     try {
-      const updated = await addOperatorNote(req.params.id, note.trim().slice(0, 1000), operatorId);
+      const updated = await addOperatorNote(req.params.id, parsed.data.note, parsed.data.operatorId);
       return res.json({ success: true, incident: updated });
     } catch (err) {
       if (err instanceof ServiceError) {
         const { status, message } = serviceErrorToHttp(err);
         return res.status(status).json({ success: false, error: message, timestamp: new Date().toISOString() });
       }
-      console.error('[ER-API] PATCH /incidents/:id/note error:', err);
       return res.status(500).json({ success: false, error: 'Internal server error', timestamp: new Date().toISOString() });
     }
   }
 );
 
-// ─── PATCH /api/emergency/incidents/:id/assign ──────────────────────────────────────
-// Update assigned operator and/or agency (does not change status).
+// ─── PATCH /api/emergency/incidents/:id/assign ───────────────────────────────
 
 emergencyRouter.patch(
   '/incidents/:id/assign',
   async (req: Request, res: Response) => {
+    const parsed = assignmentSchema.safeParse(req.body);
+    if (!parsed.success) {
+      const { status, message } = zodError(parsed.error);
+      return res.status(status).json({ success: false, error: message, timestamp: new Date().toISOString() });
+    }
     try {
-      const body = req.body as AssignmentRequest;
-      const updated = await updateIncidentAssignment(req.params.id, body);
+      const updated = await updateIncidentAssignment(req.params.id, parsed.data);
       return res.json({ success: true, incident: updated });
     } catch (err) {
       if (err instanceof ServiceError) {
         const { status, message } = serviceErrorToHttp(err);
         return res.status(status).json({ success: false, error: message, timestamp: new Date().toISOString() });
       }
-      console.error('[ER-API] PATCH /incidents/:id/assign error:', err);
+      return res.status(500).json({ success: false, error: 'Internal server error', timestamp: new Date().toISOString() });
+    }
+  }
+);
+
+// ─── GET /api/emergency/resources/nearest ────────────────────────────────────
+// NOTE: declared BEFORE '/resources' so the literal path takes priority.
+
+emergencyRouter.get(
+  '/resources/nearest',
+  async (req: Request, res: Response) => {
+    const parsed = nearestResourcesQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      const { status, message } = zodError(parsed.error);
+      return res.status(status).json({ success: false, error: message, timestamp: new Date().toISOString() });
+    }
+    const { lat, lng, type, limit } = parsed.data;
+    try {
+      const resources = await getNearestResources(lat, lng, { type, limit });
+      return res.json({ success: true, count: resources.length, resources });
+    } catch (err) {
+      if (err instanceof ServiceError) {
+        const { status, message } = serviceErrorToHttp(err);
+        return res.status(status).json({ success: false, error: message, timestamp: new Date().toISOString() });
+      }
+      return res.status(500).json({ success: false, error: 'Internal server error', timestamp: new Date().toISOString() });
+    }
+  }
+);
+
+// ─── GET /api/emergency/resources ────────────────────────────────────────────
+
+emergencyRouter.get(
+  '/resources',
+  async (req: Request, res: Response) => {
+    const parsed = resourcesQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      const { status, message } = zodError(parsed.error);
+      return res.status(status).json({ success: false, error: message, timestamp: new Date().toISOString() });
+    }
+    const { type, county } = parsed.data;
+    try {
+      const resources = await getResources({ type, county });
+      return res.json({ success: true, count: resources.length, resources });
+    } catch (err) {
+      if (err instanceof ServiceError) {
+        const { status, message } = serviceErrorToHttp(err);
+        return res.status(status).json({ success: false, error: message, timestamp: new Date().toISOString() });
+      }
       return res.status(500).json({ success: false, error: 'Internal server error', timestamp: new Date().toISOString() });
     }
   }

@@ -4,7 +4,7 @@
  * All calls go through the Vite dev proxy (/api → localhost:3001).
  */
 
-import type { ServerIncident, IncidentStatus } from './types';
+import type { ServerIncident, IncidentStatus, EmergencyResourceRecord } from './types';
 
 const BASE = '/api/emergency';
 
@@ -104,4 +104,24 @@ export async function updateIncidentAssignment(
     { method: 'PATCH', body: JSON.stringify({ assignedOperatorId, assignedAgency, operatorId }) }
   );
   return data.incident;
+}
+
+// ─── Resources ────────────────────────────────────────────────────────────────
+
+interface ResourceListResponse {
+  success: boolean;
+  count: number;
+  resources: EmergencyResourceRecord[];
+}
+
+export async function fetchResources(filters?: {
+  type?: string;
+  county?: string;
+}): Promise<EmergencyResourceRecord[]> {
+  const params = new URLSearchParams();
+  if (filters?.type)   params.set('type', filters.type);
+  if (filters?.county) params.set('county', filters.county);
+  const query = params.toString() ? `?${params}` : '';
+  const data = await request<ResourceListResponse>(`/resources${query}`);
+  return data.resources;
 }

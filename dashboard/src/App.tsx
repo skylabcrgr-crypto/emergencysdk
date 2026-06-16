@@ -11,8 +11,8 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import './dashboard.css';
-import { fetchIncidents } from './api';
-import type { ServerIncident, FilterState, IncidentStatus } from './types';
+import { fetchIncidents, fetchResources } from './api';
+import type { ServerIncident, FilterState, IncidentStatus, EmergencyResourceRecord } from './types';
 import { EMPTY_FILTER } from './components/FilterPanel';
 import { StatsBar }      from './components/StatsBar';
 import { FilterPanel }   from './components/FilterPanel';
@@ -92,6 +92,7 @@ function exportToCsv(incidents: ServerIncident[]): void {
 
 export default function App() {
   const [incidents,      setIncidents]      = useState<ServerIncident[]>([]);
+  const [resources,      setResources]      = useState<EmergencyResourceRecord[]>([]);
   const [selectedId,     setSelectedId]     = useState<string | null>(null);
   const [loading,        setLoading]        = useState(true);
   const [backendOnline,  setBackendOnline]  = useState(false);
@@ -123,6 +124,14 @@ export default function App() {
     pollRef.current = setInterval(() => void load(), POLL_INTERVAL_MS);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [load]);
+
+  // Resources change rarely — fetch once on connect, not on every poll.
+  useEffect(() => {
+    if (!backendOnline) return;
+    fetchResources()
+      .then(setResources)
+      .catch(() => setResources([]));
+  }, [backendOnline]);
 
   const handleUpdated = useCallback((updated: ServerIncident) => {
     setIncidents((prev) =>
@@ -188,6 +197,7 @@ export default function App() {
           {backendOnline ? (
             <MapPanel
               incidents={filteredIncidents}
+              resources={resources}
               selectedId={selectedId}
               onSelect={setSelectedId}
             />

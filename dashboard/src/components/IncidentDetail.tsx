@@ -99,6 +99,8 @@ export function IncidentDetail({ incident, outOfArea, onUpdated, onClose }: Inci
   const [assignAgency,   setAssignAgency]   = useState(incident.assignedAgency     ?? '');
   const [assignLoading,  setAssignLoading]  = useState(false);
   const [error,          setError]          = useState<string | null>(null);
+  /** Confirmation message shown after a status update (push notification demo). */
+  const [notifConfirm,   setNotifConfirm]   = useState<string | null>(null);
 
   // Sync assignment fields when the selected incident changes
   useEffect(() => {
@@ -110,9 +112,14 @@ export function IncidentDetail({ incident, outOfArea, onUpdated, onClose }: Inci
   const handleStatusUpdate = async (newStatus: IncidentStatus) => {
     setStatusLoading(true);
     setError(null);
+    setNotifConfirm(null);
     try {
       const updated = await updateIncidentStatus(incident.serverIncidentId, newStatus);
       onUpdated(updated);
+      // Show a brief confirmation that the backend notification service was called.
+      // The server logs the push payload (demo); in production this triggers real APNs/FCM.
+      setNotifConfirm(`Status → ${newStatus}. Push notification triggered (demo) to device.`);
+      setTimeout(() => setNotifConfirm(null), 5000);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Status update failed');
     } finally {
@@ -410,6 +417,18 @@ export function IncidentDetail({ incident, outOfArea, onUpdated, onClose }: Inci
 
       {/* ── Status Actions ───────────────────────────────────────────────────── */}
       <Section title="Update Status">
+        {error && (
+          <div style={{ color: '#f44336', fontSize: 12, marginBottom: 10 }}>{error}</div>
+        )}
+        {notifConfirm && (
+          <div style={{
+            fontSize: 11, color: '#81c784', background: 'rgba(46,125,50,0.15)',
+            border: '1px solid #2e7d32', borderRadius: 6, padding: '5px 10px',
+            marginBottom: 10,
+          }}>
+            📲 {notifConfirm}
+          </div>
+        )}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
           {actionStatuses.map((s) => {
             const color = INCIDENT_STATUS_COLORS[s];
