@@ -52,6 +52,19 @@ const schema = z.object({
   /** Lockout duration in minutes after MAX_LOGIN_ATTEMPTS is reached. */
   LOCKOUT_MINUTES: z.coerce.number().int().positive().default(15),
 
+  /**
+   * Resend API key — set to enable real transactional email.
+   * Unset → mock mode (console log only, no email sent).
+   * Get a key at https://resend.com → API Keys.
+   */
+  RESEND_API_KEY: z.string().optional(),
+
+  /**
+   * From-address for all outgoing email.
+   * Must be a verified sender in Resend (or onboarding@resend.dev for sandbox).
+   */
+  RESEND_FROM: z.string().email().default('onboarding@resend.dev'),
+
   PORT:     z.coerce.number().int().positive().default(3001),
   NODE_ENV: z.enum(['development', 'staging', 'production', 'test']).default('development'),
 });
